@@ -12,6 +12,8 @@ const nextConfig: NextConfig = {
   images: {
     unoptimized: true
   },
+
+	transpilePackages: ['ts-nc'],
 };
 
 export default nextConfig;
