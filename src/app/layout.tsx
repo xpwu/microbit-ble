@@ -28,7 +28,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-				<div className="fixed top-0 left-0 z-50 bg-white p-4 shadow-lg h-fit w-fit">
+				<div className="fixed top-1 left-1 z-50 bg-white/50 p-1 shadow-lg h-fit w-fit">
 					<BlueControl />
 				</div>
         {children}
