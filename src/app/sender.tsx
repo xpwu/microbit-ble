@@ -1,6 +1,19 @@
 'use client'
 
 import {FormEvent, useState} from "react"
+import {currentMicrobit} from "@/table/microbit"
+
+async function sendToMicrobit(cmd: string): Promise<Error|null> {
+	let res = await currentMicrobit()?.send(cmd)
+	if (res === undefined) {
+		res = new Error("not connected")
+	}
+	if (res !== null) {
+		console.warn(res.message)
+	}
+
+	return res
+}
 
 function send(e: FormEvent<HTMLFormElement>, clear: ()=>void) {
 	// 阻止浏览器重新加载页面
@@ -16,6 +29,11 @@ function send(e: FormEvent<HTMLFormElement>, clear: ()=>void) {
 	cmd = cmd + formData.get("endFlag") as string
 
 	console.log("send to micro:bit --- ", cmd)
+	sendToMicrobit(cmd).then(e=>{
+		if (e != null) {
+			alert(e.message)
+		}
+	})
 
 	clear()
 }

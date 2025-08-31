@@ -13,7 +13,7 @@ const nextConfig: NextConfig = {
     unoptimized: true
   },
 
-	transpilePackages: ['ts-nc'],
+	transpilePackages: ['ts-xutils', 'ts-nc', 'ts-concurrency'],
 };
 
 export default nextConfig;

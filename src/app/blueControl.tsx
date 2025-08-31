@@ -1,36 +1,66 @@
 'use client'
 
 import {useEffect, useState} from "react"
-import {ConnectionEvent, isConnected, setConnection} from "@/table/connection"
 import {FontAwesomeIcon} from "@fortawesome/react-fontawesome"
-import {faBluetoothB} from "@fortawesome/free-brands-svg-icons"
+import {faBluetooth} from "@fortawesome/free-brands-svg-icons"
 import {Nc} from "@/nc"
+import {connectingDevice, ConnectionEvent, currentMicrobit, microbitState, setCurrentMicrobit} from "@/table/microbit"
+import {MicroBit, MicrobitState, requestDevice} from "@/x/microbit"
 
-function disConnect() {
-	setConnection(false)
-	Nc.post(new ConnectionEvent())
-	console.log("disConnect")
+async function connect() {
+	connectingDevice(true)
+	await Nc.post(new ConnectionEvent())
+
+	let res = await requestDevice()
+	if (res == null) {
+		connectingDevice(false)
+		await Nc.post(new ConnectionEvent())
+		return
+	}
+
+	let microbit = new MicroBit(res, {max: 10
+		, onBeginning: async ()=>{
+			await Nc.post(new ConnectionEvent())
+		}, onEnd: async()=>{
+			await Nc.post(new ConnectionEvent())
+		}})
+	setCurrentMicrobit(microbit)
+
+	await microbit.connect()
+	connectingDevice(false)
+	await Nc.post(new ConnectionEvent())
 }
 
-function connect() {
-	setConnection(true)
-	Nc.post(new ConnectionEvent())
-	console.log("connect")
+async function  disConnect() {
+	connectingDevice(false)
+	currentMicrobit()?.disConnect()
+	setCurrentMicrobit(null)
+	await Nc.post(new ConnectionEvent)
 }
+
 
 export function BlueControl() {
-	const [con, setCon] = useState(isConnected())
+	const [con, setCon] = useState(microbitState())
 	useEffect(()=>{
 		const item =Nc.addEvent(ConnectionEvent, ()=>{
-			setCon(isConnected())
+			setCon(microbitState())
 		})
 		return ()=>{
 			item.remove()
 		}
 	}, [])
 
-	return (con?
-		<FontAwesomeIcon icon={faBluetoothB} size={"2xl"} style={{color: "#74C0FC",}} onClick={disConnect}/>:
-		<FontAwesomeIcon icon={faBluetoothB} size={"2xl"} onClick={connect}/>
+	let jsx = <FontAwesomeIcon icon={faBluetooth} size={"2xl"} onClick={connect}/>
+
+	if (con == MicrobitState.Connecting) {
+		jsx = <FontAwesomeIcon icon={faBluetooth} size={"2xl"} beatFade style={{color: "#3564c4"}} onClick={disConnect} />
+	} else if (con == MicrobitState.Connected) {
+		jsx = <FontAwesomeIcon icon={faBluetooth} size={"2xl"} style={{color: "#3564C4"}} onClick={disConnect}/>
+	}
+
+	return (
+		<>
+			{jsx}
+		</>
 	)
 }

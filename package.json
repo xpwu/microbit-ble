@@ -17,13 +17,16 @@
     "next": "15.4.6",
     "react": "19.1.0",
     "react-dom": "19.1.0",
-    "ts-nc": "github:xpwu/ts-nc#semver:^1"
+    "ts-concurrency": "github:xpwu/ts-concurrency#semver:^0.1",
+    "ts-nc": "github:xpwu/ts-nc#semver:^1",
+    "ts-xutils": "github:xpwu/ts-xutils#semver:^0.3"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/web-bluetooth": "^0.0.21",
     "eslint": "9.34.0",
     "eslint-config-next": "15.5.2",
     "tailwindcss": "^4",
