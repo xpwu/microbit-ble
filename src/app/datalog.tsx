@@ -2,7 +2,7 @@
 
 import {useEffect, useRef, useState} from "react"
 import {Nc} from "@/nc"
-import {DataLogAllIds, DataLogEvent, DataLogFrom, DataLogLast} from "@/table/log"
+import {DataLogAllIds, DataLogEvent, DataLogFrom, DataLogLast} from "@/table/datalog"
 import {useOnce} from "@/app/useOnce"
 
 function OneDataView({id}:{id: string}) {
