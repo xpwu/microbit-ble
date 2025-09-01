@@ -28,6 +28,8 @@ interface ReConnectOption {
 
 export class MicroBit {
 
+	public onUARTReceiving:(v:string)=>void = ()=>{}
+
 	private rxChar: BluetoothRemoteGATTCharacteristic| null = null
 	public state: MicrobitState = MicrobitState.NotConnection
 
@@ -65,7 +67,9 @@ export class MicroBit {
 
 				const txChar = await service.getCharacteristic(UART_TX_CHARACTERISTIC_UUID)
 				txChar.oncharacteristicvaluechanged = ()=>{
-					console.log(new TextDecoder().decode(txChar.value))
+					let v = new TextDecoder().decode(txChar.value)
+					console.log(v)
+					this.onUARTReceiving(v)
 				}
 				await txChar.startNotifications()
 
