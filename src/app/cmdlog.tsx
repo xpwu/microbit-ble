@@ -30,10 +30,16 @@ export default function CmdLog() {
 		}
 	}, [])
 
+	const endRef = useRef<HTMLDivElement>(null)
+	useEffect(()=>{
+		endRef.current?.scrollIntoView({behavior:"instant"})
+	}, [logs])
+
 	return (
 		<>
 			{/*key = the index of table/cmdlog, not logs*/}
-			{logs.map((v, i)=> <p key={index.current.first+i}>v</p>)}
+			{logs.map((v, i)=> <p key={index.current.first+i}>{v}</p>)}
+			<div ref={endRef}></div>
 		</>
 	)
 }

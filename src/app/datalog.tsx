@@ -32,22 +32,23 @@ function OneDataView({id}:{id: string}) {
 }
 
 export function DataLog() {
-	const [ids, setIds] = useState(()=>DataLogAllIds())
+	const [ids, setIds] = useState(DataLogAllIds)
+	const allIds = useRef(ids.slice())
 
 	useEffect(()=>{
 		const item = Nc.addEvent(DataLogEvent, (e)=>{
-			const diff = e.ids.filter(newId => !ids.find(oldId => oldId == newId))
+			const diff = e.ids.filter(newId => !allIds.current.find(oldId => oldId == newId))
 			if (diff.length == 0) {
 				return
 			}
 
+			allIds.current.push(...diff)
 			setIds(ids=>ids.concat(diff))
 		})
 
 		return ()=>{
 			item.remove()
 		}
-		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [])
 
 	return (
