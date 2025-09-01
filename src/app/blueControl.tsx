@@ -5,7 +5,8 @@ import {FontAwesomeIcon} from "@fortawesome/react-fontawesome"
 import {faBluetooth} from "@fortawesome/free-brands-svg-icons"
 import {Nc} from "@/nc"
 import {connectingDevice, ConnectionEvent, currentMicrobit, microbitState, setCurrentMicrobit} from "@/table/microbit"
-import {MicroBit, MicrobitState, requestDevice} from "@/x/microbit"
+import {isAvailable, MicroBit, MicrobitState, requestDevice} from "@/x/microbit"
+import {onReceiving} from "@/api/onReceiving";
 
 async function connect() {
 	connectingDevice(true)
@@ -24,6 +25,7 @@ async function connect() {
 		}, onEnd: async()=>{
 			await Nc.post(new ConnectionEvent())
 		}})
+	microbit.onUARTReceiving = onReceiving
 	setCurrentMicrobit(microbit)
 
 	await microbit.connect()
@@ -38,6 +40,10 @@ async function  disConnect() {
 	await Nc.post(new ConnectionEvent)
 }
 
+function notSupport() {
+	alert("not support web bluetooth or TextDecoder/TextEncoder")
+}
+
 
 export function BlueControl() {
 	const [con, setCon] = useState(microbitState())
@@ -49,6 +55,10 @@ export function BlueControl() {
 			item.remove()
 		}
 	}, [])
+
+	if (!isAvailable()) {
+		return <FontAwesomeIcon icon={faBluetooth} size={"2xl"} onClick={notSupport}/>
+	}
 
 	let jsx = <FontAwesomeIcon icon={faBluetooth} size={"2xl"} onClick={connect}/>
 
