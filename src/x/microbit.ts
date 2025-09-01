@@ -57,7 +57,7 @@ export class MicroBit {
 	}
 
 	private async runConnecting() : Promise<Error | null> {
-		return await withTimeout(20*Second, async ()=>{
+		return await withTimeout(10*Second, async ()=>{
 			try {
 				const server = await this.device.gatt!.connect()
 				const service = await server.getPrimaryService(UART_SERVICE_UUID)
@@ -138,7 +138,8 @@ export class MicroBit {
 export async function requestDevice(): Promise<BluetoothDevice|null> {
 	try {
 		return await navigator.bluetooth.requestDevice({
-			acceptAllDevices:true
+			filters:[{namePrefix: "BBC micro:bit"}],
+			optionalServices:[UART_SERVICE_UUID]
 		})
 	} catch (e) {
 		console.warn(e)
