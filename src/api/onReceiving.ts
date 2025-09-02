@@ -2,8 +2,12 @@ import {CmdLogEvent, PushCmdLog} from "@/table/cmdlog";
 import {Nc} from "@/nc";
 import {DataLogEvent, PushData} from "@/table/datalog";
 import {Millisecond} from "ts-xutils";
+import {AllLogEvent, PushAllLog} from "@/table/alllog"
 
 function tryDataLog(log: string): boolean {
+	PushAllLog(log)
+	Nc.post(new AllLogEvent).then()
+
 	let colonIndex = log.indexOf(":")
 	if (colonIndex == -1 || colonIndex == log.length - 1 || colonIndex == 0) {
 		return false

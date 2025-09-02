@@ -48,7 +48,7 @@ export default function Sender() {
 						 className="flex-1 h-full px-4 border border-gray-300 rounded-l-lg
 						 focus:outline-none focus:ring-2 focus:ring-blue-500"/>
 
-			<label className="h-full bg-white border-y border-r border-gray-300 px-4 flex items-center justify-between">
+			<label className="h-full bg-white border-y border-r border-gray-300 px-4 flex items-center justify-between text-gray-800">
 				以
 				<select name="endFlag" className="border">
 					<option value="#">#</option>
@@ -58,7 +58,7 @@ export default function Sender() {
 				结束
 			</label>
 
-			<button className="h-full bg-blue-600 text-white px-6 rounded-r-lg hover:bg-blue-700 transition-colors flex-shrink-0"
+			<button className="h-full bg-blue-600 text-white px-2 rounded-r-lg hover:bg-blue-700 transition-colors flex-shrink-0"
 							type="submit">
 				发送
 			</button>

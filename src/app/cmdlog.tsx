@@ -6,7 +6,7 @@ import {CmdLogEvent, CmdLogFrom, CmdLogLast} from "@/table/cmdlog"
 import {useOnce} from "@/app/useOnce"
 
 export default function CmdLog() {
-	const initData = useOnce(()=>CmdLogLast())
+	const initData = useOnce(CmdLogLast)
 	const index = useRef({first: initData.lastIndex - initData.logs.length + 1, last: initData.lastIndex})
 	const [logs, setLogs] = useState(initData.logs)
 
