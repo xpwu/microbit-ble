@@ -3,7 +3,7 @@ import {MicrobitState, MicroBit} from "@/x/microbit"
 
 let microbit: MicroBit|null = null
 
-export const ConnectionEvent = CreateNCEvent()
+export const ConnectionEvent = CreateNCEvent("ConnectionEvent")
 
 let isConnectingDevice = false
 

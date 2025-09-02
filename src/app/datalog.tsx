@@ -22,7 +22,7 @@ function OneDataView({id}:{id: string}) {
 		return ()=>{
 			item.remove()
 		}
-	}, [id])
+	}, [id, DataLogEvent])
 
 	return (
 		<p>
@@ -49,7 +49,7 @@ export function DataLog() {
 		return ()=>{
 			item.remove()
 		}
-	}, [])
+	}, [DataLogEvent])
 
 	return (
 		<>

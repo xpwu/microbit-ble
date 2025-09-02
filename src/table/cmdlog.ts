@@ -1,7 +1,7 @@
 import {CreateNCEvent} from "ts-nc";
 
 
-export const CmdLogEvent = CreateNCEvent<number>()
+export const CmdLogEvent = CreateNCEvent<number>("CmdLogEvent")
 
 const cmdLogs:string[] = []
 

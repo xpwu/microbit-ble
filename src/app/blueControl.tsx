@@ -7,6 +7,7 @@ import {Nc} from "@/nc"
 import {connectingDevice, ConnectionEvent, currentMicrobit, microbitState, setCurrentMicrobit} from "@/table/microbit"
 import {isAvailable, MicroBit, MicrobitState, requestDevice} from "@/x/microbit"
 import {onReceiving} from "@/api/onReceiving";
+import {Delay, Second} from "ts-xutils"
 
 async function connect() {
 	connectingDevice(true)
@@ -19,6 +20,17 @@ async function connect() {
 		return
 	}
 
+	if (currentMicrobit()?.device.id == res.id) {
+		console.log(`Microbit(${currentMicrobit()?.logId}) connected --- `
+			, "device.id: ", res.id, ", device.name: ", res.name)
+		connectingDevice(false)
+		await Nc.post(new ConnectionEvent())
+		return
+	}
+
+	currentMicrobit()?.disConnect()
+	await Delay(Second)
+	setCurrentMicrobit(null)
 	let microbit = new MicroBit(res, {max: 10
 		, onBeginning: async ()=>{
 			await Nc.post(new ConnectionEvent())
@@ -26,9 +38,12 @@ async function connect() {
 			await Nc.post(new ConnectionEvent())
 		}})
 	microbit.onUARTReceiving = onReceiving
-	setCurrentMicrobit(microbit)
 
-	await microbit.connect()
+	let con = await microbit.connect()
+	if (con == null) {
+		setCurrentMicrobit(microbit)
+	}
+
 	connectingDevice(false)
 	await Nc.post(new ConnectionEvent())
 }
@@ -49,12 +64,14 @@ export function BlueControl() {
 	const [con, setCon] = useState(microbitState())
 	useEffect(()=>{
 		const item =Nc.addEvent(ConnectionEvent, ()=>{
-			setCon(microbitState())
+			let st = microbitState()
+			console.debug("BlueControl -- ConnectionEvent: ", MicrobitState[st])
+			setCon(st)
 		})
 		return ()=>{
 			item.remove()
 		}
-	}, [])
+	}, [ConnectionEvent])
 
 	if (!isAvailable()) {
 		return <FontAwesomeIcon icon={faBluetooth} size={"2xl"} onClick={notSupport}/>

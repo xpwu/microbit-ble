@@ -28,7 +28,7 @@ export default function CmdLog() {
 		return ()=>{
 			item.remove()
 		}
-	}, [])
+	}, [CmdLogEvent])
 
 	const endRef = useRef<HTMLDivElement>(null)
 	useEffect(()=>{

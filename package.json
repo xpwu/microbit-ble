@@ -17,9 +17,9 @@
     "next": "15.4.6",
     "react": "19.1.0",
     "react-dom": "19.1.0",
-    "ts-concurrency": "github:xpwu/ts-concurrency#semver:^0.1",
+    "ts-concurrency": "github:xpwu/ts-concurrency#semver:^0.2",
     "ts-nc": "github:xpwu/ts-nc#semver:^1",
-    "ts-xutils": "github:xpwu/ts-xutils#semver:^0.3"
+    "ts-xutils": "github:xpwu/ts-xutils#semver:^0.4"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

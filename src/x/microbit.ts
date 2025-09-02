@@ -1,4 +1,4 @@
-import {Delay, formatDuration, Second} from "ts-xutils"
+import {Delay, formatDuration, Second, UniqFlag} from "ts-xutils"
 import {withTimeout} from "ts-concurrency"
 
 const UART_SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e'; // must be lowercase!
@@ -28,13 +28,14 @@ interface ReConnectOption {
 
 export class MicroBit {
 
+	public logId = UniqFlag()
 	public onUARTReceiving:(v:string)=>void = ()=>{}
 
 	private rxChar: BluetoothRemoteGATTCharacteristic| null = null
 	public state: MicrobitState = MicrobitState.NotConnection
 
 	constructor(public device: BluetoothDevice, protected reConOption: ReConnectOption) {
-		console.log("MicroBit --- device.name:", device.name, "; device.id:", device.id)
+		console.log(`MicroBit(${this.logId}) --- device.name: `, device.name, "; device.id: ", device.id)
 		device.ongattserverdisconnected = ()=>{
 			let _ = this.handleDisConnected()
 		}
@@ -48,7 +49,7 @@ export class MicroBit {
 		this.state = MicrobitState.Connecting
 		let res = await this.runConnecting()
 		if (res == null) {
-			console.log("connected: ", this.device.name)
+			console.log(`MicroBit(${this.logId}) --- connected: `, this.device.name)
 			this.state = MicrobitState.Connected
 			return null
 		}
@@ -59,29 +60,56 @@ export class MicroBit {
 	}
 
 	private async runConnecting() : Promise<Error | null> {
-		return await withTimeout(10*Second, async ()=>{
+		return await withTimeout(10*Second, async (canceled)=>{
 			try {
 				const server = await this.device.gatt!.connect()
+				console.debug("got server")
+				if (canceled()) {
+					console.debug("runConnecting --- withTimeout: canceled()")
+					return null
+				}
 				const service = await server.getPrimaryService(UART_SERVICE_UUID)
+				console.debug("got service")
+				if (canceled()) {
+					console.debug("runConnecting --- withTimeout: canceled()")
+					return null
+				}
 				this.rxChar = await service.getCharacteristic(UART_RX_CHARACTERISTIC_UUID)
+				console.debug("got rxChar")
+				if (canceled()) {
+					console.debug("runConnecting --- withTimeout: canceled()")
+					return null
+				}
 
 				const txChar = await service.getCharacteristic(UART_TX_CHARACTERISTIC_UUID)
+				console.debug("got txChar")
+				if (canceled()) {
+					console.debug("runConnecting --- withTimeout: canceled()")
+					return null
+				}
+
 				txChar.oncharacteristicvaluechanged = ()=>{
 					let v = new TextDecoder().decode(txChar.value)
-					console.log(v)
+					console.debug(v)
 					this.onUARTReceiving(v)
 				}
 				await txChar.startNotifications()
 
 				return null
 			} catch (e) {
+				// 出现错误，清理现场
+				this.device.gatt?.disconnect()
+				console.warn(e)
 				return new Error((e as {message: string}).message)
 			}
 		})
 	}
 
 	private async handleDisConnected() {
+		console.debug(`MicroBit(${this.logId}) ---handleDisConnected`)
+		this.rxChar = null
 		if (this.state != MicrobitState.Connected) {
+			console.debug("handleDisConnected --- this.state != MicrobitState.Connected")
 			return
 		}
 		this.state = MicrobitState.Connecting
@@ -91,15 +119,29 @@ export class MicroBit {
 
 	async disConnect() {
 		this.state = MicrobitState.NotConnection
-		await this.rxChar?.stopNotifications()
-		this.device.gatt?.disconnect()
-		console.log("disConnected: ", this.device.name)
+		if (this.device.gatt?.connected) {
+			try {
+				await this.rxChar?.stopNotifications()
+			}catch (e) {
+				console.debug(e)
+			}
+
+			this.device.gatt.disconnect()
+		}
+		this.rxChar = null
+		this.onUARTReceiving = (log)=>{
+			console.debug("received: ", log, ", but no receiving handle")
+		}
+
+		console.log(`MicroBit(${this.logId}) ---disConnected: `, this.device.name)
 	}
 
 	private async reConnect(max: number) {
 		const delay = 2*Second
 
 		if (this.state == MicrobitState.NotConnection) {
+			console.debug("want to reconnecct, but be disconnected")
+			await this.reConOption.onEnd()
 			return
 		}
 
@@ -110,20 +152,38 @@ export class MicroBit {
 			return
 		}
 
-		console.log(`retry connect ${formatDuration(delay)}... (${max} tries left): `, this.device.name)
+		console.log(`MicroBit(${this.logId}) --- retry connect after ${formatDuration(delay)}... (${max} tries left): `, this.device.name)
 
 		await Delay(delay)
+		console.log(`MicroBit(${this.logId}) --- reconnect.runConnecting...`, this.device.name)
+
 		let res = await this.runConnecting()
 
 		// connected
 		if (res == null) {
+			// @ts-ignore
+			if (this.state == MicrobitState.NotConnection) {
+				await this.rxChar?.stopNotifications()
+				this.device.gatt?.disconnect()
+				console.debug("reconnect & disconnect")
+				await this.reConOption.onEnd()
+				return
+			}
+
 			this.state = MicrobitState.Connected
-			console.log("connected: ", this.device.name)
+			console.log(`MicroBit(${this.logId}) --- connected: `, this.device.name)
 			await this.reConOption.onEnd()
 			return
 		}
 
 		console.warn(res.message)
+
+		if (res.message == "Bluetooth Device is no longer in range") {
+			console.debug("reconnect failed")
+			this.state = MicrobitState.NotConnection
+			await this.reConOption.onEnd()
+			return
+		}
 
 		let _ = this.reConnect(--max)
 	}

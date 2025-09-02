@@ -2,7 +2,7 @@ import {CreateNCEvent} from "ts-nc";
 import {Duration} from "ts-xutils";
 
 
-export const DataLogEvent = CreateNCEvent()
+export const DataLogEvent = CreateNCEvent("DataLogEvent")
 
 type DataId = string
 export type Value = number
