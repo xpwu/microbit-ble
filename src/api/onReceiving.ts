@@ -17,7 +17,7 @@ function tryDataLog(log: string): boolean {
 	let id = log.slice(0, colonIndex)
 	PushData(id, {tsSince1970: Date.now() * Millisecond, v: value})
 
-	let _ = Nc.post(new DataLogEvent([id]))
+	Nc.post(new DataLogEvent([id])).then()
 
 	return true;
 }
@@ -28,5 +28,5 @@ export function onReceiving(log: string) {
 	}
 
 	PushCmdLog(log)
-	let _ = Nc.post(new CmdLogEvent())
+	Nc.post(new CmdLogEvent()).then()
 }

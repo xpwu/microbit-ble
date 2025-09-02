@@ -37,7 +37,7 @@ export class MicroBit {
 	constructor(public device: BluetoothDevice, protected reConOption: ReConnectOption) {
 		console.log(`MicroBit(${this.logId}) --- device.name: `, device.name, "; device.id: ", device.id)
 		device.ongattserverdisconnected = ()=>{
-			let _ = this.handleDisConnected()
+			this.handleDisConnected().then()
 		}
 	}
 
@@ -185,7 +185,7 @@ export class MicroBit {
 			return
 		}
 
-		let _ = this.reConnect(--max)
+		this.reConnect(--max).then()
 	}
 
 	async send(cmd: string): Promise<Error|null> {
