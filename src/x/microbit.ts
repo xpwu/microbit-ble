@@ -178,7 +178,7 @@ export class MicroBit {
 
 		console.warn(res.message)
 
-		if (res.message == "Bluetooth Device is no longer in range") {
+		if (res.message == "Bluetooth Device is no longer in range.") {
 			console.debug("reconnect failed")
 			this.state = MicrobitState.NotConnection
 			await this.reConOption.onEnd()
