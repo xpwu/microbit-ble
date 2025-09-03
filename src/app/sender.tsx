@@ -2,11 +2,13 @@
 
 import {FormEvent, useState} from "react"
 import {currentMicrobit} from "@/table/microbit"
+import {CmdLogEvent, LogType, PushCmdLog} from "@/table/cmdlog"
+import {Nc} from "@/nc"
 
 async function sendToMicrobit(cmd: string): Promise<Error|null> {
 	let res = await currentMicrobit()?.send(cmd)
 	if (res === undefined) {
-		res = new Error("not connected")
+		res = new Error("蓝牙未连接")
 	}
 	if (res !== null) {
 		console.warn(res.message)
@@ -15,7 +17,7 @@ async function sendToMicrobit(cmd: string): Promise<Error|null> {
 	return res
 }
 
-function send(e: FormEvent<HTMLFormElement>, clear: ()=>void) {
+async function send(e: FormEvent<HTMLFormElement>, clear: ()=>void) {
 	// 阻止浏览器重新加载页面
 	e.preventDefault();
 
@@ -23,17 +25,19 @@ function send(e: FormEvent<HTMLFormElement>, clear: ()=>void) {
 	const formData = new FormData(e.currentTarget);
 	let cmd = formData.get("cmd") as string
 	if (cmd === "") {
-		console.log("not input cmd")
+		console.debug("not input cmd")
 		return
 	}
 	cmd = cmd + formData.get("endFlag") as string
 
-	console.log("send to micro:bit --- ", cmd)
-	sendToMicrobit(cmd).then(e=>{
-		if (e != null) {
-			alert(e.message)
-		}
-	})
+	console.debug("send to micro:bit --- ", cmd)
+
+	PushCmdLog(cmd, LogType.Input)
+	let res = await sendToMicrobit(cmd)
+	if (res != null) {
+		PushCmdLog(res.message, LogType.ErrorLog)
+	}
+	await Nc.post(new CmdLogEvent)
 
 	clear()
 }

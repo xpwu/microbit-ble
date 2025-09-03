@@ -1,13 +1,10 @@
-import {CmdLogEvent, PushCmdLog} from "@/table/cmdlog";
-import {Nc} from "@/nc";
-import {DataLogEvent, PushData} from "@/table/datalog";
-import {Millisecond} from "ts-xutils";
+import {CmdLogEvent, LogType as CmdLogType, PushCmdLog} from "@/table/cmdlog"
+import {Nc} from "@/nc"
+import {DataLogEvent, PushData} from "@/table/datalog"
+import {Millisecond} from "ts-xutils"
 import {AllLogEvent, PushAllLog} from "@/table/alllog"
 
 function tryDataLog(log: string): boolean {
-	PushAllLog(log)
-	Nc.post(new AllLogEvent).then()
-
 	let colonIndex = log.indexOf(":")
 	if (colonIndex == -1 || colonIndex == log.length - 1 || colonIndex == 0) {
 		return false
@@ -27,10 +24,16 @@ function tryDataLog(log: string): boolean {
 }
 
 export function onReceiving(log: string) {
+	PushAllLog(log)
+	Nc.post(new AllLogEvent).then()
+
 	if (tryDataLog(log)) {
 		return
 	}
 
-	PushCmdLog(log)
-	Nc.post(new CmdLogEvent()).then()
+	// try "CmdRes"
+	if (log.startsWith(">>") && log.length > 2) {
+		PushCmdLog(log.slice(2), CmdLogType.ResLog)
+		Nc.post(new CmdLogEvent()).then()
+	}
 }
