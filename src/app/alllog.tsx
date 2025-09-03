@@ -2,55 +2,31 @@
 
 import {useEffect, useRef, useState} from "react"
 import {Nc} from "@/nc"
-import {AllLogEvent, AllLogFrom, AllLogLast} from "@/table/alllog"
+import {AllLogEvent, AllLogFrom, AllLogLast, Log, Type} from "@/table/alllog"
 import {useOnce} from "@/app/useOnce"
 import {ConnectionEvent, microbitState} from "@/table/microbit"
 import {MicrobitState} from "@/x/microbit"
-import {UniqFlag} from "ts-xutils"
-
-interface ShowLog {
-	isTxLog: boolean
-	key: string | number
-	log: string
-}
-
-function toShowLog(logs: string[], firstIndex: number): ShowLog[] {
-	return logs.map((v, i)=>{
-		return {
-			isTxLog: true,
-			key: firstIndex + i,
-			log: v
-		}
-	})
-}
 
 export default function AllLogs() {
-	const initData = useOnce<{lastIndex: number, logs: ShowLog[]}>(()=>{
-		let last = AllLogLast()
-		const firstIndex = last.lastIndex - last.logs.length + 1
-		return {
-			lastIndex: last.lastIndex,
-			logs: toShowLog(last.logs, firstIndex)
-		}
-	})
+	const initData = useOnce(AllLogLast)
 	const index = useRef({first: initData.lastIndex - initData.logs.length + 1, last: initData.lastIndex})
 	const [logs, setLogs] = useState(initData.logs)
 	const lastCon = useRef(MicrobitState.NotConnection)
 
 	useEffect(()=>{
-		const item = Nc.addEvent(AllLogEvent, ()=>{
+		const item =Nc.addEvent(AllLogEvent, ()=>{
 			const newLogs = AllLogFrom(index.current.last + 1)
-			const newFirstIndex = index.current.last
+			index.current.last += newLogs.length
 			setLogs(logs =>{
-				let slice: ShowLog[]
+				let slice: Log[]
 				if (logs.length > 150) {
 					slice = logs.slice(50)
+					index.current.first += 50
 				} else {
 					slice = logs
 				}
-				return slice.concat(toShowLog(newLogs, newFirstIndex))
+				return slice.concat(newLogs)
 			})
-			index.current.last += newLogs.length
 		})
 		return ()=>{
 			item.remove()
@@ -65,8 +41,7 @@ export default function AllLogs() {
 			if (oldState != MicrobitState.Connected && st == MicrobitState.Connected) {
 				setLogs(logs => {
 					return logs.concat({
-						isTxLog: false,
-						key: UniqFlag(),
+						type: Type.Tips,
 						log: "---<new connection>---"
 					})
 				})
@@ -84,11 +59,15 @@ export default function AllLogs() {
 
 	return (
 		<>
-			{logs.map((v)=> {
-				if (v.isTxLog) {
-					return <p key={v.key}> <span className='text-gray-300'>{'>'}</span> {v.log}</p>
+			{logs.map((v, i)=> {
+				switch (v.type) {
+					case Type.Tips:
+						return <p key={index.current.first+i} className='text-gray-400'> {v.log} </p>
+					case Type.MicrobitLog:
+						return <p key={index.current.first+i}> <span className='text-gray-300'>{'>'}</span> {v.log}</p>
+					default:
+						return <></>
 				}
-				return <p key={v.key} className='text-gray-400'> {v.log} </p>
 			})}
 			<div ref={endRef}></div>
 		</>

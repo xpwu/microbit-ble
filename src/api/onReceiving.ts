@@ -2,7 +2,7 @@ import {CmdLogEvent, LogType as CmdLogType, PushCmdLog} from "@/table/cmdlog"
 import {Nc} from "@/nc"
 import {DataLogEvent, PushData} from "@/table/datalog"
 import {Millisecond} from "ts-xutils"
-import {AllLogEvent, PushAllLog} from "@/table/alllog"
+import {AllLogEvent, PushAllLog, Type} from "@/table/alllog"
 
 function tryDataLog(log: string): boolean {
 	let colonIndex = log.indexOf(":")
@@ -24,7 +24,7 @@ function tryDataLog(log: string): boolean {
 }
 
 export function onReceiving(log: string) {
-	PushAllLog(log)
+	PushAllLog(log, Type.MicrobitLog)
 	Nc.post(new AllLogEvent).then()
 
 	if (tryDataLog(log)) {
