@@ -11,25 +11,6 @@ export function onReceiving(log: string) {
 	}
 }
 
-function tryDataLog(log: string): boolean {
-	let colonIndex = log.indexOf(":")
-	if (colonIndex == -1 || colonIndex == log.length - 1 || colonIndex == 0) {
-		return false
-	}
-
-	let value = +log.slice(colonIndex + 1)
-	if (isNaN(value)) {
-		return false
-	}
-
-	let id = log.slice(0, colonIndex)
-	PushData(id, {tsSince1970: Date.now() * Millisecond, v: value})
-
-	Nc.post(new DataLogEvent([id])).then()
-
-	return true;
-}
-
 const MaxURATInputDataLength = 255
 
 function chunkDataIntoLines(data: string): string[] {
@@ -56,18 +37,29 @@ function chunkDataIntoLines(data: string): string[] {
 	return lines
 }
 
-function processOneLine(log: string) {
-	PushAllLog(log, Type.MicrobitLog)
+function processOneLine(line: string) {
+	PushAllLog(line, Type.MicrobitLog)
 	Nc.post(new AllLogEvent).then()
 
-	if (tryDataLog(log)) {
-		return
+	// is this a key-value pair, or just a number?
+	// id:value  or value
+	let regRes = /^\s*(([^:]+):)?\s*(-?\d+(\.\d*)?(e[\+\-]\d+)?)/i.exec(line);
+	if (regRes) {
+		const id = regRes[2] || '';
+		const value = parseFloat(regRes[3]);
+		if (!isNaN(value)) {
+			PushData(id, {tsSince1970: Date.now() * Millisecond, v: value})
+			Nc.post(new DataLogEvent([id])).then()
+			return;
+		}
 	}
 
 	// try "CmdRes"
-	if (log.startsWith(">>") && log.length > 2) {
-		PushCmdLog(log.slice(2), CmdLogType.ResLog)
+	regRes = /^\s*>>\s*(\S+)$/.exec(line)
+	if (regRes && regRes[1]) {
+		PushCmdLog(regRes[1], CmdLogType.ResLog)
 		Nc.post(new CmdLogEvent()).then()
+		return;
 	}
 }
 
