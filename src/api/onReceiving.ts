@@ -55,7 +55,7 @@ function processOneLine(line: string) {
 	}
 
 	// try "CmdRes"
-	regRes = /^\s*>>\s*(\S+)$/.exec(line)
+	regRes = /^\s*>>\s*(.+)$/.exec(line)
 	if (regRes && regRes[1]) {
 		PushCmdLog(regRes[1], CmdLogType.ResLog)
 		Nc.post(new CmdLogEvent()).then()
