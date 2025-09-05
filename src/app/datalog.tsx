@@ -86,6 +86,30 @@ function OneChartView({initObserveVars, startColor}:{initObserveVars: string[], 
 	const indices = useRef<Map<string, number>>(new Map<string, number>())
 	const chartRef = useRef(new Chart(lineColors, startColor))
 
+	function updateData(ids: string[]) {
+		for (const id of ids) {
+			let lastIndex = indices.current.get(id)
+			if (lastIndex === undefined) {
+				continue
+			}
+
+			const newLogs = DataLogFrom(id, lastIndex + 1)
+			indices.current.set(id, lastIndex + newLogs.length)
+			newLogs.forEach((v)=>{
+				chartRef.current.addPoint(id, v)
+			})
+		}
+	}
+
+	useEffect(()=>{
+		const item =Nc.addEvent(DataLogEvent, (e)=>{
+			updateData(e.ids)
+		})
+		return ()=>{
+			item.remove()
+		}
+	}, [DataLogEvent])
+
 	useEffect(()=>{
 		for (const id of initObserveVars) {
 			if (indices.current.has(id)) {
@@ -93,30 +117,12 @@ function OneChartView({initObserveVars, startColor}:{initObserveVars: string[], 
 			}
 			let last = DataLogLast(id)
 			indices.current.set(id, last.lastIndex)
-		}
 
-		return ()=>{}
+			last.data.forEach(v=>{
+				chartRef.current.addPoint(id, v)
+			})
+		}
 	}, [initObserveVars])
-
-	useEffect(()=>{
-		const item =Nc.addEvent(DataLogEvent, (e)=>{
-			for (const id of e.ids) {
-				let lastIndex = indices.current.get(id)
-				if (lastIndex === undefined) {
-					continue
-				}
-
-				const newLogs = DataLogFrom(id, lastIndex + 1)
-				indices.current.set(id, lastIndex + newLogs.length)
-				newLogs.forEach((v)=>{
-					chartRef.current.addPoint(id, v)
-				})
-			}
-		})
-		return ()=>{
-			item.remove()
-		}
-	}, [DataLogEvent])
 
 	useEffect(()=>{
 		const item = Nc.addEvent(ConnectionEvent, ()=>{
@@ -137,6 +143,10 @@ function OneChartView({initObserveVars, startColor}:{initObserveVars: string[], 
 				return
 			}
 			chartRef.current.smoothie.streamTo(node)
+			if (microbitState() != MicrobitState.Connected) {
+				chartRef.current.smoothie.stop()
+			}
+
 			return ()=>{
 				chartRef.current.smoothie.stop()
 			}
