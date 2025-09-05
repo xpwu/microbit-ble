@@ -32,7 +32,8 @@ class Chart {
 				borderVisible: false,
 				millisPerLine: 5000,
 				fillStyle: '#d9d9d9',
-				// strokeStyle: 'color:#000; width:2px'
+				strokeStyle: "#000",
+				lineWidth:1
 			},
 			tooltip: true,
 			tooltipFormatter: (ts, data) => this.tooltip(ts, data)
