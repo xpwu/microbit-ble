@@ -8,7 +8,6 @@ import {Millisecond, UniqFlag} from "ts-xutils"
 import {ConnectionEvent, microbitState} from "@/table/microbit"
 import {MicrobitState} from "@/x/microbit"
 
-
 declare module "smoothie" {
 	interface TimeSeries {
 		name:string
@@ -38,7 +37,18 @@ class Chart {
 				lineWidth:1
 			},
 			tooltip: true,
-			tooltipFormatter: (ts, data) => this.tooltip(ts, data)
+			tooltipFormatter: (ts, data) => this.tooltip(ts, data),
+
+			// chart 背景多显示了 1 个数字的大小，在 formatter 时，需要修正
+			yRangeFunction: (range) => {
+				return {min: range.min-1, max: range.max+1}
+			},
+			yMinFormatter: (min: number, precision: number) => {
+				return (min+1).toFixed(precision)
+			},
+			yMaxFormatter: (max: number, precision: number) => {
+				return (max-1).toFixed(precision)
+			},
 		}
 
 		this.smoothie = new Smoothie.SmoothieChart(chartConfig)
