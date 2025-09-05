@@ -48,7 +48,7 @@ function processOneLine(line: string) {
 		const id = regRes[2] || '';
 		const value = parseFloat(regRes[3]);
 		if (!isNaN(value)) {
-			PushData(id, {tsSince1970: Date.now() * Millisecond, v: value})
+			PushData(id, {since1970: Date.now() * Millisecond, value: value})
 			Nc.post(new DataLogEvent([id])).then()
 			return;
 		}

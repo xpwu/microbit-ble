@@ -7,8 +7,8 @@ export const DataLogEvent = CreateNCEvent("DataLogEvent")
 type DataId = string
 export type Value = number
 export interface Data {
-  tsSince1970: Duration
-  v: Value
+  since1970: Duration
+  value: Value
 }
 
 // Data[]  必须按照 timestamp 的顺序放入数组中
