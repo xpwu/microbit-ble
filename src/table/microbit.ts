@@ -28,3 +28,13 @@ export function setCurrentMicrobit(m: MicroBit | null) {
 export function currentMicrobit(): MicroBit| null {
 	return microbit
 }
+
+const lastDeviceIdKey = "lastDeviceId"
+
+export function setLastDeviceId(id: string) {
+	localStorage.setItem(lastDeviceIdKey, id)
+}
+
+export function lastDeviceId(): string|null {
+	return localStorage.getItem(lastDeviceIdKey)
+}

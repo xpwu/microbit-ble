@@ -4,25 +4,46 @@ import {useEffect, useState} from "react"
 import {FontAwesomeIcon} from "@fortawesome/react-fontawesome"
 import {faBluetooth} from "@fortawesome/free-brands-svg-icons"
 import {Nc} from "@/nc"
-import {connectingDevice, ConnectionEvent, currentMicrobit, microbitState, setCurrentMicrobit} from "@/table/microbit"
-import {isAvailable, MicroBit, MicrobitState, requestDevice} from "@/x/microbit"
+import {
+	connectingDevice,
+	ConnectionEvent,
+	currentMicrobit,
+	lastDeviceId,
+	microbitState,
+	setCurrentMicrobit, setLastDeviceId
+} from "@/table/microbit"
+import {isAvailable, MicroBit, MicrobitState, requestDevice, resumeDevice} from "@/x/microbit"
 import {onReceiving} from "@/api/onReceiving";
 import {Delay, Second} from "ts-xutils"
+
+async function creatMicrobit(device: BluetoothDevice): Promise<[MicroBit, Error|null]> {
+	let microbit = new MicroBit(device, {max: 10
+		, onBeginning: async ()=>{
+			await Nc.post(new ConnectionEvent())
+		}, onEnd: async()=>{
+			await Nc.post(new ConnectionEvent())
+		}})
+	microbit.onUARTReceiving = onReceiving
+
+	let err = await microbit.connect()
+
+	return [microbit, err]
+}
 
 async function connect() {
 	connectingDevice(true)
 	await Nc.post(new ConnectionEvent())
 
-	let res = await requestDevice()
-	if (res == null) {
+	let device = await requestDevice()
+	if (device == null) {
 		connectingDevice(false)
 		await Nc.post(new ConnectionEvent())
 		return
 	}
 
-	if (currentMicrobit()?.device.id == res.id) {
+	if (currentMicrobit()?.device.id == device.id) {
 		console.log(`Microbit(${currentMicrobit()?.logId}) connected --- `
-			, "device.id: ", res.id, ", device.name: ", res.name)
+			, "device.id: ", device.id, ", device.name: ", device.name)
 		connectingDevice(false)
 		await Nc.post(new ConnectionEvent())
 		return
@@ -31,16 +52,39 @@ async function connect() {
 	currentMicrobit()?.disConnect()
 	await Delay(Second)
 	setCurrentMicrobit(null)
-	let microbit = new MicroBit(res, {max: 10
-		, onBeginning: async ()=>{
-			await Nc.post(new ConnectionEvent())
-		}, onEnd: async()=>{
-			await Nc.post(new ConnectionEvent())
-		}})
-	microbit.onUARTReceiving = onReceiving
 
-	let con = await microbit.connect()
-	if (con == null) {
+	let [microbit, err] = await creatMicrobit(device)
+	if (err == null) {
+		setCurrentMicrobit(microbit)
+		setLastDeviceId(device.id)
+	}
+
+	connectingDevice(false)
+	await Nc.post(new ConnectionEvent())
+}
+
+async function connectLastOne() {
+	if (currentMicrobit() !== null) {
+		return
+	}
+
+	const lastId = lastDeviceId()
+	if (lastId === null) {
+		return
+	}
+
+	connectingDevice(true)
+	await Nc.post(new ConnectionEvent())
+
+	const device = await resumeDevice(lastId)
+	if (device === null) {
+		connectingDevice(false)
+		await Nc.post(new ConnectionEvent())
+		return
+	}
+
+	let [microbit, err] = await creatMicrobit(device)
+	if (err == null) {
 		setCurrentMicrobit(microbit)
 	}
 
@@ -72,6 +116,9 @@ export function BlueControl() {
 			item.remove()
 		}
 	}, [ConnectionEvent])
+	useEffect(()=>{
+		connectLastOne().then()
+	}, [])
 
 	if (!isAvailable()) {
 		return <FontAwesomeIcon icon={faBluetooth} size={"2xl"} onClick={notSupport}/>

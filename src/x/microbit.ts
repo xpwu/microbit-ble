@@ -211,3 +211,18 @@ export async function requestDevice(): Promise<BluetoothDevice|null> {
 	}
 }
 
+export async function resumeDevice(deviceId: string): Promise<BluetoothDevice|null> {
+	try {
+		let all = await navigator.bluetooth.getDevices()
+		for (const v of all) {
+			if (v.id === deviceId) {
+				return v
+			}
+		}
+		return null
+	} catch (e) {
+		console.warn(e)
+		return null
+	}
+}
+
