@@ -5,6 +5,8 @@ import {Nc} from "@/nc"
 import {Data, DataLogAllIds, DataLogEvent, DataLogFrom, DataLogLast} from "@/table/datalog"
 import * as Smoothie from "smoothie"
 import {Millisecond, UniqFlag} from "ts-xutils"
+import {ConnectionEvent, microbitState} from "@/table/microbit"
+import {MicrobitState} from "@/x/microbit"
 
 
 declare module "smoothie" {
@@ -115,6 +117,19 @@ function OneChartView({initObserveVars, startColor}:{initObserveVars: string[], 
 			item.remove()
 		}
 	}, [DataLogEvent])
+
+	useEffect(()=>{
+		const item = Nc.addEvent(ConnectionEvent, ()=>{
+			if (microbitState() != MicrobitState.Connected) {
+				chartRef.current.smoothie.stop()
+			} else {
+				chartRef.current.smoothie.start()
+			}
+		})
+		return ()=>{
+			item.remove()
+		}
+	}, [ConnectionEvent])
 
 	return (
 		<canvas className="w-full h-30 m-0 rounded-sm" ref={(node)=>{
