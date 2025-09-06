@@ -8,15 +8,11 @@ import {Millisecond, UniqFlag} from "ts-xutils"
 import {ConnectionEvent, microbitState} from "@/table/microbit"
 import {MicrobitState} from "@/x/microbit"
 
-declare module "smoothie" {
-	interface TimeSeries {
-		name:string
-	}
-}
-
 class Chart {
 	lines: Map<string, Smoothie.TimeSeries> = new Map
 	public smoothie: Smoothie.SmoothieChart
+
+	private originYRange = {min:0, max:0}
 
 	constructor(private lineColors: string[], private colorIndex: number) {
 		const chartConfig: Smoothie.IChartOptions = {
@@ -39,15 +35,15 @@ class Chart {
 			tooltip: true,
 			tooltipFormatter: (ts, data) => this.tooltip(ts, data),
 
-			// chart 背景多显示了 1 个数字的大小，在 formatter 时，需要修正
 			yRangeFunction: (range) => {
-				return {min: range.min-1, max: range.max+1}
+				this.originYRange = range
+				return {min: range.min-(range.max-range.min)*0.025, max: range.max+(range.max-range.min)*0.025}
 			},
-			yMinFormatter: (min: number, precision: number) => {
-				return (min+1).toFixed(precision)
+			yMinFormatter: (_: number, precision: number) => {
+				return this.originYRange.min.toFixed(precision)
 			},
-			yMaxFormatter: (max: number, precision: number) => {
-				return (max-1).toFixed(precision)
+			yMaxFormatter: (_: number, precision: number) => {
+				return this.originYRange.max.toFixed(precision)
 			},
 		}
 
@@ -55,18 +51,22 @@ class Chart {
 	}
 
 	tooltip(_: number, data: { series: Smoothie.TimeSeries, index: number, value: number }[]): string {
-		return data.map(n => {
-			const name = n.series.name
-			return `<span>${name ? name + ': ' : ''}${n.value}</span>`;
-		}).join('<br/>');
+		const content = data.map(n => {
+			// smoothie.d.ts type error
+			const series = n.series as unknown as {options: {strokeStyle:string}; timeSeries: Smoothie.TimeSeries}
+
+			let color = series.options.strokeStyle || "#d6d3d1"
+			return `<div class="text-xs" style="color: ${color}">${n.value}</div>`;
+		}).join('');
+
+		return `<div class="mt-3 p-1"> ${content} </div>`
 	}
 
-	private getLine(id: string): Smoothie.TimeSeries {
+	public getLine(id: string): Smoothie.TimeSeries {
 		let line = this.lines.get(id)
 		if (!line) {
 			const color = this.lineColors[this.colorIndex++ % this.lineColors.length]
 			line = new Smoothie.TimeSeries()
-			line.name = id
 			this.lines.set(id, line)
 			this.smoothie.addTimeSeries(line, {
 				strokeStyle: color,
@@ -92,7 +92,7 @@ class Chart {
 const lineColors = ["#e71f1f", "#f59e0b", "#86efac", "#67e8f9"
 	, "#a5b4fc", "#f0abfc", "#fda4af"]
 
-function OneChartView({initObserveVars, startColor}:{initObserveVars: string[], startColor: number}) {
+function OneChartView({showIds, startColor}:{showIds: string[], startColor: number}) {
 	const indices = useRef<Map<string, number>>(new Map<string, number>())
 	const chartRef = useRef(new Chart(lineColors, startColor))
 
@@ -121,7 +121,7 @@ function OneChartView({initObserveVars, startColor}:{initObserveVars: string[], 
 	}, [DataLogEvent])
 
 	useEffect(()=>{
-		for (const id of initObserveVars) {
+		for (const id of showIds) {
 			if (indices.current.has(id)) {
 				continue
 			}
@@ -132,7 +132,7 @@ function OneChartView({initObserveVars, startColor}:{initObserveVars: string[], 
 				chartRef.current.addPoint(id, v)
 			})
 		}
-	}, [initObserveVars])
+	}, [showIds])
 
 	useEffect(()=>{
 		const item = Nc.addEvent(ConnectionEvent, ()=>{
@@ -148,19 +148,28 @@ function OneChartView({initObserveVars, startColor}:{initObserveVars: string[], 
 	}, [ConnectionEvent])
 
 	return (
-		<canvas className="w-full h-30 m-0 rounded-sm" ref={(node)=>{
-			if (node == null) {
-				return
-			}
-			chartRef.current.smoothie.streamTo(node)
-			if (microbitState() != MicrobitState.Connected) {
-				chartRef.current.smoothie.stop()
-			}
+		<div className="relative">
+			<canvas className="w-full h-30 m-0 rounded-sm" ref={(node)=>{
+				if (node == null) {
+					return
+				}
+				chartRef.current.smoothie.streamTo(node)
+				if (microbitState() != MicrobitState.Connected) {
+					chartRef.current.smoothie.stop()
+				}
 
-			return ()=>{
-				chartRef.current.smoothie.stop()
-			}
-		}}></canvas>
+				return ()=>{
+					chartRef.current.smoothie.stop()
+				}
+			}}></canvas>
+			<div className="absolute bottom-1 left-2 z-50">
+				{showIds.map((id)=> {
+					const color = chartRef.current.smoothie.getTimeSeriesOptions(chartRef.current.getLine(id)).strokeStyle || "#d6d3d1"
+					return <p key={id} style={{color: color}} className="text-xs">{id}</p>
+				})}
+			</div>
+		</div>
+
 	)
 }
 
@@ -216,8 +225,8 @@ export function DataLog() {
 	return (
 		<>
 			{groups.map((v, i)=>
-				<div className="mb-2" key={v}>
-					<OneChartView initObserveVars={allGroupIdsRef.current.get(v)?.ids || []} startColor={i}/>
+				<div className="mb-1" key={v}>
+					<OneChartView showIds={allGroupIdsRef.current.get(v)?.ids || []} startColor={i}/>
 				</div>
 				)}
 		</>
