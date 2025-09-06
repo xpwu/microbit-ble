@@ -52,13 +52,25 @@ export default function AllLogs() {
 		}
 	}, [ConnectionEvent])
 
+	const autoScroll = useRef(true)
+
 	const endRef = useRef<HTMLDivElement>(null)
 	useEffect(()=>{
-		endRef.current?.scrollIntoView({behavior:"instant"})
+		if (autoScroll.current) {
+			endRef.current?.scrollIntoView({behavior:"instant"})
+		}
 	}, [logs])
 
 	return (
-		<>
+		<div className="w-full h-full overflow-auto" ref={(node)=>{
+			if (node === null) {
+				return
+			}
+
+			node.onscroll = ()=>{
+				autoScroll.current = node.scrollHeight - node.offsetHeight - node.scrollTop < node.offsetHeight/3
+			}
+		}}>
 			{logs.map((v, i)=> {
 				switch (v.type) {
 					case Type.Tips:
@@ -70,6 +82,6 @@ export default function AllLogs() {
 				}
 			})}
 			<div ref={endRef}></div>
-		</>
+		</div>
 	)
 }
