@@ -196,7 +196,9 @@ export function DataLog() {
 			if (prefix != "") {
 				for (const [_, value] of allGroupIdsRef.current) {
 					if (value.prefix == prefix) {
-						value.ids.push(v)
+						// 因为 value.ids 被作为 props 传递给子组件，所以需要使用 concat 而不能使用 push 以满足状态"快照"的要求
+						// value.ids.push(v)
+						value.ids = value.ids.concat(v)
 						return
 					}
 				}
