@@ -12,10 +12,10 @@ export function onReceiving(log: string) {
 }
 
 const MaxURATInputDataLength = 255
+let buffer = ""
 
 function chunkDataIntoLines(data: string): string[] {
 	let lines: string[] = []
-	let buffer = ""
 	for (let i = 0; i < data.length; ++i) {
 		const ch = data[i]
 		buffer += ch
@@ -43,7 +43,7 @@ function processOneLine(line: string) {
 
 	// is this a key-value pair, or just a number?
 	// id:value  or value
-	let regRes = /^\s*(([^:]+):)?\s*(-?\d+(\.\d*)?(e[\+\-]\d+)?)/i.exec(line);
+	let regRes = /^\s*(([^:]+):)?\s*(-?\d+(\.\d*)?(e[\+\-]\d+)?)$/i.exec(line);
 	if (regRes) {
 		const id = regRes[2] || '';
 		const value = parseFloat(regRes[3]);
