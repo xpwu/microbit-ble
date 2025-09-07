@@ -96,7 +96,7 @@ class Chart {
 	}
 }
 
-const lineColors = ["#e71f1f", "#f59e0b", "#16a34a", "#67e8f9"
+const lineColors = ["#e71f1f", "#f59e0b", "#16a34a", "#0891b2"
 	, "#a5b4fc", "#f0abfc", "#fda4af"]
 
 function OneChartView({showIds, startColor}:{showIds: string[], startColor: number}) {
