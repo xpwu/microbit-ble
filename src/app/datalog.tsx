@@ -96,7 +96,7 @@ class Chart {
 	}
 }
 
-function LableView({showIds, chartRef, lastValueRef}:
+function LabelView({showIds, chartRef, lastValueRef}:
 										 {chartRef: RefObject<Chart>, showIds: string[]
 											 , lastValueRef: RefObject<Map<string, number>>}) {
 
@@ -208,7 +208,7 @@ function OneChartView({showIds, startColor}:{showIds: string[], startColor: numb
 				}
 			}}></canvas>
 			<div className="absolute bottom-1 left-2 z-50 bg-neutral-300 p-1 rounded-sm border-1 border-neutral-500">
-				<LableView chartRef={chartRef} showIds={showIds} lastValueRef={lastValueRef}/>
+				<LabelView chartRef={chartRef} showIds={showIds} lastValueRef={lastValueRef}/>
 			</div>
 		</div>
 
