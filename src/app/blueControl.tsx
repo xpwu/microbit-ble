@@ -10,10 +10,11 @@ import {
 	currentMicrobit,
 	lastDeviceId,
 	microbitState,
-	setCurrentMicrobit, setLastDeviceId
+	setCurrentMicrobit,
+	setLastDeviceId
 } from "@/table/microbit"
 import {isAvailable, MicroBit, MicrobitState, requestDevice, resumeDevice} from "@/x/microbit"
-import {onReceiving} from "@/api/onReceiving";
+import {onReceiving} from "@/api/onReceiving"
 import {Delay, Second} from "ts-xutils"
 
 async function creatMicrobit(device: BluetoothDevice): Promise<[MicroBit, Error|null]> {
@@ -41,7 +42,7 @@ async function connect() {
 		return
 	}
 
-	if (currentMicrobit()?.device.id == device.id) {
+	if (currentMicrobit()?.device.id == device.id && currentMicrobit()?.state != MicrobitState.NotConnection) {
 		console.log(`Microbit(${currentMicrobit()?.logId}) connected --- `
 			, "device.id: ", device.id, ", device.name: ", device.name)
 		connectingDevice(false)
