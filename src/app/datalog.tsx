@@ -1,6 +1,6 @@
 'use client'
 
-import {useEffect, useRef, useState} from "react"
+import {RefObject, useEffect, useRef, useState} from "react"
 import {Nc} from "@/nc"
 import {Data, DataLogAllIds, DataLogEvent, DataLogFrom, DataLogLast} from "@/table/datalog"
 import * as Smoothie from "smoothie"
@@ -96,6 +96,36 @@ class Chart {
 	}
 }
 
+function LableView({showIds, chartRef, lastValueRef}:
+										 {chartRef: RefObject<Chart>, showIds: string[]
+											 , lastValueRef: RefObject<Map<string, number>>}) {
+
+	const [_, setVersion] = useState(0)
+
+	useEffect(()=>{
+		const item =Nc.addEvent(DataLogEvent, (e)=>{
+			const ids = e.ids.filter(id=>showIds.includes(id))
+			if (ids.length == 0) {
+				return
+			}
+
+			setVersion(v=>v+1)
+		})
+		return ()=>{
+			item.remove()
+		}
+	}, [DataLogEvent])
+
+	return (
+		<>
+			{showIds.map((id)=> {
+				const color = chartRef.current.smoothie.getTimeSeriesOptions(chartRef.current.getLine(id)).strokeStyle || "#d6d3d1"
+				return <p key={id} style={{color: color}} className="text-xs">{id}{": " + (lastValueRef.current.get(id)?toFixed(lastValueRef.current.get(id)!,2):"")}</p>
+			})}
+		</>
+	)
+}
+
 const lineColors = ["#e71f1f", "#f59e0b", "#16a34a", "#0891b2"
 	, "#a5b4fc", "#f0abfc", "#fda4af"]
 
@@ -103,7 +133,6 @@ function OneChartView({showIds, startColor}:{showIds: string[], startColor: numb
 	const indices = useRef<Map<string, number>>(new Map<string, number>())
 	const chartRef = useRef(new Chart(lineColors, startColor))
 	const lastValueRef = useRef(new Map<string, number>())
-	const [_, setVersion] = useState(0)
 
 	function updateData(ids: string[]) {
 		for (const id of ids) {
@@ -120,7 +149,6 @@ function OneChartView({showIds, startColor}:{showIds: string[], startColor: numb
 
 			if (newLogs.length != 0) {
 				lastValueRef.current.set(id, newLogs.at(-1)!.value)
-				setVersion(v=>v+1)
 			}
 		}
 	}
@@ -147,7 +175,6 @@ function OneChartView({showIds, startColor}:{showIds: string[], startColor: numb
 			})
 			if (last.data.length != 0) {
 				lastValueRef.current.set(id, last.data.at(-1)!.value)
-				setVersion(v=>v+1)
 			}
 		}
 	}, [showIds])
@@ -181,10 +208,7 @@ function OneChartView({showIds, startColor}:{showIds: string[], startColor: numb
 				}
 			}}></canvas>
 			<div className="absolute bottom-1 left-2 z-50 bg-neutral-300 p-1 rounded-sm border-1 border-neutral-500">
-				{showIds.map((id)=> {
-					const color = chartRef.current.smoothie.getTimeSeriesOptions(chartRef.current.getLine(id)).strokeStyle || "#d6d3d1"
-					return <p key={id} style={{color: color}} className="text-xs">{id}{": " + (lastValueRef.current.get(id)?toFixed(lastValueRef.current.get(id)!,2):"")}</p>
-				})}
+				<LableView chartRef={chartRef} showIds={showIds} lastValueRef={lastValueRef}/>
 			</div>
 		</div>
 
