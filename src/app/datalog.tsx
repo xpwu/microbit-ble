@@ -8,6 +8,13 @@ import {Millisecond, UniqFlag} from "ts-xutils"
 import {ConnectionEvent, microbitState} from "@/table/microbit"
 import {MicrobitState} from "@/x/microbit"
 
+function toFixed(num:Number, maxPrecision: number): string {
+	if (Number.isInteger(num)) {
+		return String(num)
+	}
+	return num.toFixed(maxPrecision)
+}
+
 class Chart {
 	lines: Map<string, Smoothie.TimeSeries> = new Map
 	public smoothie: Smoothie.SmoothieChart
@@ -40,10 +47,10 @@ class Chart {
 				return {min: range.min-(range.max-range.min)*0.025, max: range.max+(range.max-range.min)*0.025}
 			},
 			yMinFormatter: (_: number, precision: number) => {
-				return this.originYRange.min.toFixed(precision)
+				return toFixed(this.originYRange.min, precision)
 			},
 			yMaxFormatter: (_: number, precision: number) => {
-				return this.originYRange.max.toFixed(precision)
+				return toFixed(this.originYRange.max, precision)
 			},
 		}
 
@@ -89,12 +96,14 @@ class Chart {
 	}
 }
 
-const lineColors = ["#e71f1f", "#f59e0b", "#86efac", "#67e8f9"
+const lineColors = ["#e71f1f", "#f59e0b", "#16a34a", "#67e8f9"
 	, "#a5b4fc", "#f0abfc", "#fda4af"]
 
 function OneChartView({showIds, startColor}:{showIds: string[], startColor: number}) {
 	const indices = useRef<Map<string, number>>(new Map<string, number>())
 	const chartRef = useRef(new Chart(lineColors, startColor))
+	const lastValueRef = useRef(new Map<string, number>())
+	const [_, setVersion] = useState(0)
 
 	function updateData(ids: string[]) {
 		for (const id of ids) {
@@ -108,6 +117,11 @@ function OneChartView({showIds, startColor}:{showIds: string[], startColor: numb
 			newLogs.forEach((v)=>{
 				chartRef.current.addPoint(id, v)
 			})
+
+			if (newLogs.length != 0) {
+				lastValueRef.current.set(id, newLogs.at(-1)!.value)
+				setVersion(v=>v+1)
+			}
 		}
 	}
 
@@ -131,6 +145,10 @@ function OneChartView({showIds, startColor}:{showIds: string[], startColor: numb
 			last.data.forEach(v=>{
 				chartRef.current.addPoint(id, v)
 			})
+			if (last.data.length != 0) {
+				lastValueRef.current.set(id, last.data.at(-1)!.value)
+				setVersion(v=>v+1)
+			}
 		}
 	}, [showIds])
 
@@ -162,10 +180,10 @@ function OneChartView({showIds, startColor}:{showIds: string[], startColor: numb
 					chartRef.current.smoothie.stop()
 				}
 			}}></canvas>
-			<div className="absolute bottom-1 left-2 z-50">
+			<div className="absolute bottom-1 left-2 z-50 bg-neutral-300 p-1 rounded-sm border-1 border-neutral-500">
 				{showIds.map((id)=> {
 					const color = chartRef.current.smoothie.getTimeSeriesOptions(chartRef.current.getLine(id)).strokeStyle || "#d6d3d1"
-					return <p key={id} style={{color: color}} className="text-xs">{id}</p>
+					return <p key={id} style={{color: color}} className="text-xs">{id}{": " + (lastValueRef.current.get(id)?toFixed(lastValueRef.current.get(id)!,2):"")}</p>
 				})}
 			</div>
 		</div>
