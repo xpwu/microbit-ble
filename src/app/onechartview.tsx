@@ -6,7 +6,6 @@ import {ConnectionEvent, microbitState} from "@/table/microbit";
 import {MicrobitState} from "@/x/microbit";
 import {toFixed} from "@/x/fun";
 
-
 function LabelView({showIds, chartRef, lastValueRef}:
                      {chartRef: RefObject<Chart>, showIds: string[]
                        , lastValueRef: RefObject<Map<string, number>>}) {
@@ -25,13 +24,13 @@ function LabelView({showIds, chartRef, lastValueRef}:
     return ()=>{
       item.remove()
     }
-  }, [DataLogEvent])
+  }, [DataLogEvent, showIds])
 
   return (
     <>
       {showIds.map((id)=> {
         const color = chartRef.current.smoothie.getTimeSeriesOptions(chartRef.current.getLine(id)).strokeStyle || "#d6d3d1"
-        return <p key={id} style={{color: color}} className="text-xs">{id}{": " + (lastValueRef.current.get(id)?toFixed(lastValueRef.current.get(id)!,2):"")}</p>
+        return <p key={id} style={{color: color}} className="text-xs">{id}{": " + (lastValueRef.current.get(id)!==undefined?toFixed(lastValueRef.current.get(id)!,2):"")}</p>
       })}
     </>
   )
@@ -45,7 +44,7 @@ export function OneChartView({showIds, startColor}:{showIds: string[], startColo
   const chartRef = useRef(new Chart(lineColors, startColor))
   const lastValueRef = useRef(new Map<string, number>())
 
-  function updateData(ids: string[]) {
+  async function updateData(ids: string[]) {
     for (const id of ids) {
       let lastIndex = indices.current.get(id)
       if (lastIndex === undefined) {
@@ -65,8 +64,8 @@ export function OneChartView({showIds, startColor}:{showIds: string[], startColo
   }
 
   useEffect(()=>{
-    const item =Nc.addEvent(DataLogEvent, (e)=>{
-      updateData(e.ids)
+    const item =Nc.addEvent(DataLogEvent, async (e)=>{
+       await updateData(e.ids)
     })
     return ()=>{
       item.remove()
