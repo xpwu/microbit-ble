@@ -2,7 +2,7 @@
 
 import {useEffect, useRef, useState} from "react"
 import {Nc} from "@/nc"
-import {AllLogEvent, AllLogFrom, AllLogLast, Type} from "@/table/alllog"
+import {AllLogEvent, AllLogFrom, AllLogLast, Log, Type} from "@/table/alllog"
 import {useOnce} from "@/app/useOnce"
 import {ConnectionEvent, microbitState} from "@/table/microbit"
 import {MicrobitState} from "@/x/microbit"
@@ -18,14 +18,15 @@ export default function AllLogs() {
 			const newLogs = AllLogFrom(index.current.last + 1)
 			index.current.last += newLogs.length
 			setLogs(logs =>{
-				// let slice: Log[]
-				// if (logs.length > 10000) {
-				// 	slice = logs.slice(50)
-				// 	index.current.first += 50
-				// } else {
-				// 	slice = logs
-				// }
-				return logs.concat(newLogs)
+				let slice: Log[]
+				if (logs.length > 100) {
+					const dropData = 30
+					slice = logs.slice(dropData)
+					index.current.first += dropData
+				} else {
+					slice = logs
+				}
+				return slice.concat(newLogs)
 			})
 		})
 		return ()=>{
