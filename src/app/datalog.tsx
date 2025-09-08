@@ -77,20 +77,9 @@ export function DataLog() {
 	},[])
 
 	const currentDragRef = useRef({groupId:"", index: -1})
-	const nodeRef = useRef(new Map<string, HTMLDivElement>())
 	const [insertPoint, setInsertPoint] = useState(-1)
 	const mergeFlag = 1000
 
-	function nodeRefHandle(node: HTMLDivElement|null, groupId: string){
-		if (node == null) {
-			nodeRef.current.delete(groupId)
-			return
-		}
-		nodeRef.current.set(groupId, node)
-		return ()=>{
-			nodeRef.current.delete(groupId)
-		}
-	}
 	function dragStartHandle(dragGroupId: string, dragGroupIndex: number) {
 		currentDragRef.current = {groupId: dragGroupId, index: dragGroupIndex}
 	}
@@ -103,9 +92,9 @@ export function DataLog() {
 		const node = e.currentTarget
 		const rect = node.getBoundingClientRect()
 		const relativeY = e.clientY - rect.y
-		if (relativeY < rect.height/4) {
+		if (relativeY < rect.height/3) {
 			setInsertPoint(overGroupIndex)
-		} else if (relativeY > 3*rect.height/4) {
+		} else if (relativeY > 2*rect.height/3) {
 			setInsertPoint(overGroupIndex+1)
 		} else {
 			setInsertPoint(overGroupIndex + mergeFlag)
@@ -132,10 +121,14 @@ export function DataLog() {
 				}
 				if (i === insertPoint) {
 					newGroups.push(currentDragRef.current.groupId)
+					newGroups.push(v)
 					return
 				}
 				newGroups.push(v)
 			})
+			if (insertPoint === groups.length) {
+				newGroups.push(currentDragRef.current.groupId)
+			}
 			setGroups(newGroups)
 		}
 
@@ -150,9 +143,9 @@ export function DataLog() {
 							 "border-t-2": insertPoint == i,
 							 "border-2": insertPoint == i + mergeFlag,
 						 })}
-						 ref={node=>nodeRefHandle(node, v)}
 						 onDragStart={()=>dragStartHandle(v, i)}
 						 onDragOver={e=>dragOverHandle(e, i)}
+						 onDragLeave={()=>setInsertPoint(-1)}
 						 onDrop={()=>dropHandle(i)}
 				>
 

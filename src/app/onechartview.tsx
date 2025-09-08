@@ -107,6 +107,8 @@ export function OneChartView({showIds, startColor}:{showIds: string[], startColo
     <div className="relative">
       <canvas className="w-full h-30 m-0 rounded-sm" ref={(node)=>{
         if (node == null) {
+					chartRef.current.smoothie.stop()
+					chartRef.current.closeToolTip()
           return
         }
         chartRef.current.smoothie.streamTo(node)
@@ -116,6 +118,7 @@ export function OneChartView({showIds, startColor}:{showIds: string[], startColo
 
         return ()=>{
           chartRef.current.smoothie.stop()
+					chartRef.current.closeToolTip()
         }
       }}></canvas>
       <div className="absolute bottom-1 left-2 z-50 bg-neutral-300 p-1 rounded-sm border-1 border-neutral-500">

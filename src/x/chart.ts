@@ -4,6 +4,12 @@ import {Millisecond} from "ts-xutils";
 import {toFixed} from "@/x/fun";
 
 
+declare module 'smoothie' {
+	interface SmoothieChart {
+		mouseout():void
+	}
+}
+
 export class Chart {
   lines: Map<string, Smoothie.TimeSeries> = new Map
   public smoothie: Smoothie.SmoothieChart
@@ -83,4 +89,8 @@ export class Chart {
       this.smoothie.removeTimeSeries(s)
     }
   }
+
+	closeToolTip() {
+		this.smoothie.mouseout()
+	}
 }
