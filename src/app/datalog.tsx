@@ -7,6 +7,7 @@ import * as Smoothie from "smoothie"
 import {Millisecond, UniqFlag} from "ts-xutils"
 import {ConnectionEvent, microbitState} from "@/table/microbit"
 import {MicrobitState} from "@/x/microbit"
+import cn from "classnames"
 
 function toFixed(num:Number, maxPrecision: number): string {
 	if (Number.isInteger(num)) {
@@ -266,13 +267,74 @@ export function DataLog() {
 		updateGroup(DataLogAllIds())
 	},[])
 
+	const currentDragRef = useRef({groupId:"", index: -1})
+	const nodeRef = useRef(new Map<string, HTMLDivElement>())
+	const [highlight, setHighlight] = useState(-1)
+	const selfHighlight = 1000
+
 	return (
 		<>
 			{groups.map((v, i)=>
-				<div className="mb-1" key={v}>
-					<OneChartView showIds={allGroupIdsRef.current.get(v)?.ids || []} startColor={i}/>
+				<div key={v} draggable={true}
+						 className= {cn("border-blue-500", {
+							 "border-t-2": highlight == i,
+							 "border-2": highlight == i + selfHighlight,
+						 })}
+						 ref={node=>{
+							 if (node == null) {
+									nodeRef.current.delete(v)
+									return
+								}
+							 nodeRef.current.set(v, node)
+								return ()=>{
+									nodeRef.current.delete(v)
+								}
+						 }}
+						 onDragStart={()=>{
+							 currentDragRef.current = {groupId: v, index: i}
+							}}
+						 onDragOver={e=>{
+							 e.preventDefault()
+							 if (currentDragRef.current.index === i) {
+								 setHighlight(-1)
+								 return
+							 }
+							 const node = nodeRef.current.get(v)!
+							 const rect = node.getBoundingClientRect()
+							 const relativeY = e.clientY - rect.y
+							 if (relativeY < rect.height/4) {
+								 setHighlight(i)
+							 } else if (relativeY > 3*rect.height/4) {
+								 setHighlight(i+1)
+							 } else {
+								 setHighlight(i + selfHighlight)
+							 }
+							}}
+						 onDrop={()=>{
+							 if (currentDragRef.current.index === i || highlight === -1) {
+								 setHighlight(-1)
+								 return
+							 }
+
+							 // todo
+							 if (highlight >= selfHighlight) {
+								 console.log("merge to ", i)
+							 }
+							 // if (currentDragRef.current.index < highlight) {
+								//  setGroups(gs=>{
+								//  })
+							 // }
+
+							 setHighlight(-1)
+						 }}
+				>
+
+					<div className="my-0.5">
+						<OneChartView showIds={allGroupIdsRef.current.get(v)?.ids || []} startColor={i}/>
+					</div>
 				</div>
 				)}
+			<div className= {cn("border-blue-500", {"border-t-2":highlight == groups.length})}></div>
 		</>
 	)
 }
