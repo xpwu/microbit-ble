@@ -1,220 +1,12 @@
 'use client'
 
-import {RefObject, useEffect, useRef, useState} from "react"
+import {useEffect, useRef, useState, DragEvent} from "react"
 import {Nc} from "@/nc"
-import {Data, DataLogAllIds, DataLogEvent, DataLogFrom, DataLogLast} from "@/table/datalog"
-import * as Smoothie from "smoothie"
-import {Millisecond, UniqFlag} from "ts-xutils"
-import {ConnectionEvent, microbitState} from "@/table/microbit"
-import {MicrobitState} from "@/x/microbit"
+import {DataLogAllIds, DataLogEvent} from "@/table/datalog"
+import {UniqFlag} from "ts-xutils"
 import cn from "classnames"
+import {OneChartView} from "@/app/onechartview";
 
-function toFixed(num:Number, maxPrecision: number): string {
-	if (Number.isInteger(num)) {
-		return String(num)
-	}
-	return num.toFixed(maxPrecision)
-}
-
-class Chart {
-	lines: Map<string, Smoothie.TimeSeries> = new Map
-	public smoothie: Smoothie.SmoothieChart
-
-	private originYRange = {min:0, max:0}
-
-	constructor(private lineColors: string[], private colorIndex: number) {
-		const chartConfig: Smoothie.IChartOptions = {
-			interpolation: 'linear',
-			labels: {
-				disabled: false,
-				fillStyle: '#333333',
-				fontSize: 14
-			},
-			responsive: true,
-			millisPerPixel: 20,
-			grid: {
-				verticalSections: 0,
-				borderVisible: false,
-				millisPerLine: 5000,
-				fillStyle: '#d9d9d9',
-				strokeStyle: "#000",
-				lineWidth:1
-			},
-			tooltip: true,
-			tooltipFormatter: (ts, data) => this.tooltip(ts, data),
-
-			yRangeFunction: (range) => {
-				this.originYRange = range
-				return {min: range.min-(range.max-range.min)*0.025, max: range.max+(range.max-range.min)*0.025}
-			},
-			yMinFormatter: (_: number, precision: number) => {
-				return toFixed(this.originYRange.min, precision)
-			},
-			yMaxFormatter: (_: number, precision: number) => {
-				return toFixed(this.originYRange.max, precision)
-			},
-		}
-
-		this.smoothie = new Smoothie.SmoothieChart(chartConfig)
-	}
-
-	tooltip(_: number, data: { series: Smoothie.TimeSeries, index: number, value: number }[]): string {
-		const content = data.map(n => {
-			// smoothie.d.ts type error
-			const series = n.series as unknown as {options: {strokeStyle:string}; timeSeries: Smoothie.TimeSeries}
-
-			let color = series.options.strokeStyle || "#d6d3d1"
-			return `<div class="text-xs" style="color: ${color}">${n.value}</div>`;
-		}).join('');
-
-		return `<div class="mt-3 p-1"> ${content} </div>`
-	}
-
-	public getLine(id: string): Smoothie.TimeSeries {
-		let line = this.lines.get(id)
-		if (!line) {
-			const color = this.lineColors[this.colorIndex++ % this.lineColors.length]
-			line = new Smoothie.TimeSeries()
-			this.lines.set(id, line)
-			this.smoothie.addTimeSeries(line, {
-				strokeStyle: color,
-				lineWidth: 2
-			})
-		}
-		return line
-	}
-
-	addPoint(id: string, data: Data) {
-		const line = this.getLine(id)
-		line.append(data.since1970/Millisecond, data.value)
-	}
-
-	remove(id: string) {
-		const s = this.lines.get(id)
-		if (s) {
-			this.smoothie.removeTimeSeries(s)
-		}
-	}
-}
-
-function LabelView({showIds, chartRef, lastValueRef}:
-										 {chartRef: RefObject<Chart>, showIds: string[]
-											 , lastValueRef: RefObject<Map<string, number>>}) {
-
-	const [_, setVersion] = useState(0)
-
-	useEffect(()=>{
-		const item =Nc.addEvent(DataLogEvent, (e)=>{
-			const ids = e.ids.filter(id=>showIds.includes(id))
-			if (ids.length == 0) {
-				return
-			}
-
-			setVersion(v=>v+1)
-		})
-		return ()=>{
-			item.remove()
-		}
-	}, [DataLogEvent])
-
-	return (
-		<>
-			{showIds.map((id)=> {
-				const color = chartRef.current.smoothie.getTimeSeriesOptions(chartRef.current.getLine(id)).strokeStyle || "#d6d3d1"
-				return <p key={id} style={{color: color}} className="text-xs">{id}{": " + (lastValueRef.current.get(id)?toFixed(lastValueRef.current.get(id)!,2):"")}</p>
-			})}
-		</>
-	)
-}
-
-const lineColors = ["#e71f1f", "#f59e0b", "#16a34a", "#0891b2"
-	, "#a5b4fc", "#f0abfc", "#fda4af"]
-
-function OneChartView({showIds, startColor}:{showIds: string[], startColor: number}) {
-	const indices = useRef<Map<string, number>>(new Map<string, number>())
-	const chartRef = useRef(new Chart(lineColors, startColor))
-	const lastValueRef = useRef(new Map<string, number>())
-
-	function updateData(ids: string[]) {
-		for (const id of ids) {
-			let lastIndex = indices.current.get(id)
-			if (lastIndex === undefined) {
-				continue
-			}
-
-			const newLogs = DataLogFrom(id, lastIndex + 1)
-			indices.current.set(id, lastIndex + newLogs.length)
-			newLogs.forEach((v)=>{
-				chartRef.current.addPoint(id, v)
-			})
-
-			if (newLogs.length != 0) {
-				lastValueRef.current.set(id, newLogs.at(-1)!.value)
-			}
-		}
-	}
-
-	useEffect(()=>{
-		const item =Nc.addEvent(DataLogEvent, (e)=>{
-			updateData(e.ids)
-		})
-		return ()=>{
-			item.remove()
-		}
-	}, [DataLogEvent])
-
-	useEffect(()=>{
-		for (const id of showIds) {
-			if (indices.current.has(id)) {
-				continue
-			}
-			let last = DataLogLast(id)
-			indices.current.set(id, last.lastIndex)
-
-			last.data.forEach(v=>{
-				chartRef.current.addPoint(id, v)
-			})
-			if (last.data.length != 0) {
-				lastValueRef.current.set(id, last.data.at(-1)!.value)
-			}
-		}
-	}, [showIds])
-
-	useEffect(()=>{
-		const item = Nc.addEvent(ConnectionEvent, ()=>{
-			if (microbitState() != MicrobitState.Connected) {
-				chartRef.current.smoothie.stop()
-			} else {
-				chartRef.current.smoothie.start()
-			}
-		})
-		return ()=>{
-			item.remove()
-		}
-	}, [ConnectionEvent])
-
-	return (
-		<div className="relative">
-			<canvas className="w-full h-30 m-0 rounded-sm" ref={(node)=>{
-				if (node == null) {
-					return
-				}
-				chartRef.current.smoothie.streamTo(node)
-				if (microbitState() != MicrobitState.Connected) {
-					chartRef.current.smoothie.stop()
-				}
-
-				return ()=>{
-					chartRef.current.smoothie.stop()
-				}
-			}}></canvas>
-			<div className="absolute bottom-1 left-2 z-50 bg-neutral-300 p-1 rounded-sm border-1 border-neutral-500">
-				<LabelView chartRef={chartRef} showIds={showIds} lastValueRef={lastValueRef}/>
-			</div>
-		</div>
-
-	)
-}
 
 function findPre(v: string): string {
 	let index = v.indexOf(".")
@@ -228,6 +20,23 @@ export function DataLog() {
 	const allIdsRef = useRef<Set<string>>(new Set<string>())
 	const allGroupIdsRef = useRef(new Map<string, {ids:string[], prefix:string}>())
 	const [groups, setGroups] = useState<string[]>([])
+
+	function mergeGroupToGroup(fromGroupId: string, toGroupId: string) {
+		const fromGroup = allGroupIdsRef.current.get(fromGroupId)
+		const toGroup = allGroupIdsRef.current.get(toGroupId)
+		if (fromGroup === undefined || toGroup === undefined) {
+			console.error("mergeGroup or toGroup undefined")
+			return
+		}
+
+		if (fromGroup.prefix != toGroup.prefix) {
+			toGroup.prefix = ""
+		}
+		toGroup.ids = toGroup.ids.concat(fromGroup.ids)
+		allGroupIdsRef.current.delete(fromGroupId)
+
+		setGroups(g=>g.filter(value => value !== fromGroupId))
+	}
 
 	function updateGroup(ids: string[]) {
 		ids.forEach((v)=> {
@@ -269,64 +78,82 @@ export function DataLog() {
 
 	const currentDragRef = useRef({groupId:"", index: -1})
 	const nodeRef = useRef(new Map<string, HTMLDivElement>())
-	const [highlight, setHighlight] = useState(-1)
-	const selfHighlight = 1000
+	const [insertPoint, setInsertPoint] = useState(-1)
+	const mergeFlag = 1000
+
+	function nodeRefHandle(node: HTMLDivElement|null, groupId: string){
+		if (node == null) {
+			nodeRef.current.delete(groupId)
+			return
+		}
+		nodeRef.current.set(groupId, node)
+		return ()=>{
+			nodeRef.current.delete(groupId)
+		}
+	}
+	function dragStartHandle(dragGroupId: string, dragGroupIndex: number) {
+		currentDragRef.current = {groupId: dragGroupId, index: dragGroupIndex}
+	}
+	function dragOverHandle(e: DragEvent<HTMLDivElement>, overGroupIndex: number){
+		e.preventDefault()
+		if (currentDragRef.current.index === overGroupIndex) {
+			setInsertPoint(-1)
+			return
+		}
+		const node = e.currentTarget
+		const rect = node.getBoundingClientRect()
+		const relativeY = e.clientY - rect.y
+		if (relativeY < rect.height/4) {
+			setInsertPoint(overGroupIndex)
+		} else if (relativeY > 3*rect.height/4) {
+			setInsertPoint(overGroupIndex+1)
+		} else {
+			setInsertPoint(overGroupIndex + mergeFlag)
+		}
+	}
+	function dropHandle(dropGroupIndex:number) {
+		if (insertPoint === -1) {
+			return;
+		}
+		// dragged node is dropped node  or dragged node is just the insert point
+		if (currentDragRef.current.index === dropGroupIndex || currentDragRef.current.index === insertPoint) {
+			setInsertPoint(-1)
+			return
+		}
+
+		if (insertPoint >= mergeFlag) {
+			const toPoint = insertPoint - mergeFlag
+			mergeGroupToGroup(currentDragRef.current.groupId, groups[toPoint])
+		} else {
+			let newGroups:string[] = []
+			groups.forEach((v, i)=>{
+				if (i === currentDragRef.current.index) {
+					return
+				}
+				if (i === insertPoint) {
+					newGroups.push(currentDragRef.current.groupId)
+					return
+				}
+				newGroups.push(v)
+			})
+			setGroups(newGroups)
+		}
+
+		setInsertPoint(-1)
+	}
 
 	return (
 		<>
 			{groups.map((v, i)=>
 				<div key={v} draggable={true}
 						 className= {cn("border-blue-500", {
-							 "border-t-2": highlight == i,
-							 "border-2": highlight == i + selfHighlight,
+							 "border-t-2": insertPoint == i,
+							 "border-2": insertPoint == i + mergeFlag,
 						 })}
-						 ref={node=>{
-							 if (node == null) {
-									nodeRef.current.delete(v)
-									return
-								}
-							 nodeRef.current.set(v, node)
-								return ()=>{
-									nodeRef.current.delete(v)
-								}
-						 }}
-						 onDragStart={()=>{
-							 currentDragRef.current = {groupId: v, index: i}
-							}}
-						 onDragOver={e=>{
-							 e.preventDefault()
-							 if (currentDragRef.current.index === i) {
-								 setHighlight(-1)
-								 return
-							 }
-							 const node = nodeRef.current.get(v)!
-							 const rect = node.getBoundingClientRect()
-							 const relativeY = e.clientY - rect.y
-							 if (relativeY < rect.height/4) {
-								 setHighlight(i)
-							 } else if (relativeY > 3*rect.height/4) {
-								 setHighlight(i+1)
-							 } else {
-								 setHighlight(i + selfHighlight)
-							 }
-							}}
-						 onDrop={()=>{
-							 if (currentDragRef.current.index === i || highlight === -1) {
-								 setHighlight(-1)
-								 return
-							 }
-
-							 // todo
-							 if (highlight >= selfHighlight) {
-								 console.log("merge to ", i)
-							 }
-							 // if (currentDragRef.current.index < highlight) {
-								//  setGroups(gs=>{
-								//  })
-							 // }
-
-							 setHighlight(-1)
-						 }}
+						 ref={node=>nodeRefHandle(node, v)}
+						 onDragStart={()=>dragStartHandle(v, i)}
+						 onDragOver={e=>dragOverHandle(e, i)}
+						 onDrop={()=>dropHandle(i)}
 				>
 
 					<div className="my-0.5">
@@ -334,7 +161,7 @@ export function DataLog() {
 					</div>
 				</div>
 				)}
-			<div className= {cn("border-blue-500", {"border-t-2":highlight == groups.length})}></div>
+			<div className= {cn("border-blue-500", {"border-t-2":insertPoint == groups.length})}></div>
 		</>
 	)
 }
