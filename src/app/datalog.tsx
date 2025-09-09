@@ -16,26 +16,28 @@ function findPre(v: string): string {
 	return v.slice(0, index)
 }
 
+interface DragData {
+	groupId: string
+	groupIndex: number
+	// undefined: all dataIds in the group
+	dataId?: string
+}
+
+function isWholeGroup(d: DragData): boolean {
+	return d.dataId === undefined
+}
+
 export function DataLog() {
 	const allIdsRef = useRef<Set<string>>(new Set<string>())
-	const allGroupIdsRef = useRef(new Map<string, {ids:string[], prefix:string}>())
+	const groupMapRef = useRef(new Map<string, {ids:string[], prefix:string}>())
 	const [groups, setGroups] = useState<string[]>([])
 
-	function mergeGroupToGroup(fromGroupId: string, toGroupId: string) {
-		const fromGroup = allGroupIdsRef.current.get(fromGroupId)
-		const toGroup = allGroupIdsRef.current.get(toGroupId)
-		if (fromGroup === undefined || toGroup === undefined) {
-			console.error("mergeGroup or toGroup undefined")
-			return
-		}
-
-		if (fromGroup.prefix != toGroup.prefix) {
-			toGroup.prefix = ""
-		}
-		toGroup.ids = toGroup.ids.concat(fromGroup.ids)
-		allGroupIdsRef.current.delete(fromGroupId)
-
-		setGroups(g=>g.filter(value => value !== fromGroupId))
+	// 因为 group.ids 被作为 props 传递给子组件，所以需要使用 concat 而不能使用 push 以满足状态"快照"的要求
+	function pushGroupIds(group:{ids:string[]}, ids:string[]) {
+		group.ids = group.ids.concat(ids)
+	}
+	function removeGroupIds(group:{ids:string[]}, ids:string[]) {
+		group.ids = group.ids.filter(v=>!ids.includes(v))
 	}
 
 	function updateGroup(ids: string[]) {
@@ -46,18 +48,16 @@ export function DataLog() {
 			allIdsRef.current.add(v)
 			const prefix = findPre(v)
 			if (prefix != "") {
-				for (const [_, value] of allGroupIdsRef.current) {
+				for (const [_, value] of groupMapRef.current) {
 					if (value.prefix == prefix) {
-						// 因为 value.ids 被作为 props 传递给子组件，所以需要使用 concat 而不能使用 push 以满足状态"快照"的要求
-						// value.ids.push(v)
-						value.ids = value.ids.concat(v)
+						pushGroupIds(value, [v])
 						return
 					}
 				}
 			}
 
 			const flag = UniqFlag()
-			allGroupIdsRef.current.set(flag, {ids: [v], prefix: prefix})
+			groupMapRef.current.set(flag, {ids: [v], prefix: prefix})
 			setGroups(groups=>groups.concat(flag))
 		})
 	}
@@ -76,16 +76,55 @@ export function DataLog() {
 		updateGroup(DataLogAllIds())
 	},[])
 
-	const currentDragRef = useRef({groupId:"", index: -1})
+	const currentDragRef = useRef<DragData>({groupId:"", groupIndex: -1})
 	const [insertPoint, setInsertPoint] = useState(-1)
 	const mergeFlag = 1000
 
+	function mergeGroupToGroup(fromGroupId: string, toGroupId: string) {
+		const fromGroup = groupMapRef.current.get(fromGroupId)
+		const toGroup = groupMapRef.current.get(toGroupId)
+		if (fromGroup === undefined || toGroup === undefined) {
+			console.error("mergeGroup or toGroup undefined")
+			return
+		}
+
+		if (fromGroup.prefix != toGroup.prefix) {
+			toGroup.prefix = ""
+		}
+		pushGroupIds(toGroup, fromGroup.ids)
+		groupMapRef.current.delete(fromGroupId)
+
+		setGroups(g=>g.filter(value => value !== fromGroupId))
+	}
+	function mergeIdToGroup(from: { groupId: string, id: string }, toGroupId: string) {
+		const fromGroup = groupMapRef.current.get(from.groupId)
+		const toGroup = groupMapRef.current.get(toGroupId)
+		if (fromGroup === undefined || toGroup === undefined) {
+			console.error("mergeGroup or toGroup undefined")
+			return
+		}
+
+		if (findPre(from.id) !== toGroup.prefix) {
+			toGroup.prefix = ""
+		}
+		pushGroupIds(toGroup, [from.id])
+		removeGroupIds(fromGroup, [from.id])
+
+		let deleteId = ""
+		if (fromGroup.ids.length === 0) {
+			groupMapRef.current.delete(from.groupId)
+			deleteId = from.groupId
+		}
+
+		setGroups(g=>g.filter(value => value !== deleteId))
+	}
+
 	function dragStartHandle(dragGroupId: string, dragGroupIndex: number) {
-		currentDragRef.current = {groupId: dragGroupId, index: dragGroupIndex}
+		currentDragRef.current = {groupId: dragGroupId, groupIndex: dragGroupIndex}
 	}
 	function dragOverHandle(e: DragEvent<HTMLDivElement>, overGroupIndex: number){
 		e.preventDefault()
-		if (currentDragRef.current.index === overGroupIndex) {
+		if (currentDragRef.current.groupIndex === overGroupIndex && isWholeGroup(currentDragRef.current)) {
 			setInsertPoint(-1)
 			return
 		}
@@ -96,33 +135,42 @@ export function DataLog() {
 			setInsertPoint(overGroupIndex)
 		} else if (relativeY > 2*rect.height/3) {
 			setInsertPoint(overGroupIndex+1)
-		} else {
+		} else if (currentDragRef.current.groupIndex !== overGroupIndex) {
 			setInsertPoint(overGroupIndex + mergeFlag)
+		} else {
+			setInsertPoint(-1)
 		}
 	}
-	function dropHandle(dropGroupIndex:number) {
-		if (insertPoint === -1) {
-			return;
-		}
+	function runDropping(dropGroupIndex:number) {
+		const dragged = currentDragRef.current
 		// dragged node is dropped node  or dragged node is just the insert point
-		if (currentDragRef.current.index === dropGroupIndex || currentDragRef.current.index === insertPoint) {
-			setInsertPoint(-1)
+		if ((dragged.groupIndex === dropGroupIndex || dragged.groupIndex === insertPoint)
+			&& isWholeGroup(dragged)) {
 			return
 		}
 
 		if (insertPoint >= mergeFlag) {
 			const toPoint = insertPoint - mergeFlag
-			mergeGroupToGroup(currentDragRef.current.groupId, groups[toPoint])
-		} else {
+			if (toPoint === dragged.groupIndex) {
+				return
+			}
+			if (isWholeGroup(dragged)) {
+				mergeGroupToGroup(dragged.groupId, groups[toPoint])
+				return
+			}
+
+			mergeIdToGroup({groupId: dragged.groupId, id: dragged.dataId!}, groups[toPoint])
+			return
+		}
+
+		if (isWholeGroup(dragged)) {
 			let newGroups:string[] = []
 			groups.forEach((v, i)=>{
-				if (i === currentDragRef.current.index) {
+				if (i === currentDragRef.current.groupIndex) {
 					return
 				}
 				if (i === insertPoint) {
 					newGroups.push(currentDragRef.current.groupId)
-					newGroups.push(v)
-					return
 				}
 				newGroups.push(v)
 			})
@@ -130,8 +178,44 @@ export function DataLog() {
 				newGroups.push(currentDragRef.current.groupId)
 			}
 			setGroups(newGroups)
+
+			return
 		}
 
+		const draggedId = dragged.dataId!
+		const draggedGroup = groupMapRef.current.get(dragged.groupId)
+		if (draggedGroup === undefined) {
+			return
+		}
+		removeGroupIds(draggedGroup, [draggedId])
+		let deleteId = ""
+		if (draggedGroup.ids.length === 0) {
+			groupMapRef.current.delete(dragged.groupId)
+			deleteId = dragged.groupId
+		}
+
+		const newGroupId = UniqFlag()
+		groupMapRef.current.set(newGroupId, {ids:[draggedId], prefix: findPre(draggedId)})
+		let newGroups:string[] = []
+		groups.forEach((v, i)=>{
+			if (v === deleteId) {
+				return
+			}
+			if (i === insertPoint) {
+				newGroups.push(newGroupId)
+			}
+			newGroups.push(v)
+		})
+		if (insertPoint === groups.length) {
+			newGroups.push(newGroupId)
+		}
+		setGroups(newGroups)
+	}
+	function dropHandle(dropGroupIndex:number) {
+		if (insertPoint === -1) {
+			return;
+		}
+		runDropping(dropGroupIndex)
 		setInsertPoint(-1)
 	}
 
@@ -150,7 +234,8 @@ export function DataLog() {
 				>
 
 					<div className="my-0.5">
-						<OneChartView showIds={allGroupIdsRef.current.get(v)?.ids || []} startColor={i}/>
+						<OneChartView showIds={groupMapRef.current.get(v)?.ids || []} startColor={i}
+													onDragLabel={id=>currentDragRef.current = {groupId: v, groupIndex: i, dataId: id}}/>
 					</div>
 				</div>
 				)}

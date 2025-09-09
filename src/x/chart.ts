@@ -16,7 +16,7 @@ export class Chart {
 
   private originYRange = {min:0, max:0}
 
-  constructor(private lineColors: string[], private colorIndex: number) {
+  constructor(private lineColors: string[], public colorIndex: number) {
     const chartConfig: Smoothie.IChartOptions = {
       interpolation: 'linear',
       labels: {
@@ -88,7 +88,13 @@ export class Chart {
     if (s) {
       this.smoothie.removeTimeSeries(s)
     }
+		this.lines.delete(id)
   }
+
+	removeAllIds() {
+		this.lines.forEach(value => this.smoothie.removeTimeSeries(value))
+		this.lines.clear()
+	}
 
 	closeToolTip() {
 		this.smoothie.mouseout()

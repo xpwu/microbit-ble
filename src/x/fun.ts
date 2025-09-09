@@ -1,5 +1,5 @@
 
-export function toFixed(num:Number, maxPrecision: number): string {
+export function toFixed(num:number, maxPrecision: number): string {
   if (Number.isInteger(num)) {
     return String(num)
   }
