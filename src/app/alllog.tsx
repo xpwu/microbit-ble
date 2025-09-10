@@ -1,14 +1,13 @@
 'use client'
 
-import {useEffect, useRef, useState} from "react"
+import {useEffect, useMemo, useRef, useState} from "react"
 import {Nc} from "@/nc"
 import {AllLogEvent, AllLogFrom, AllLogLast, Log, Type} from "@/table/alllog"
-import {useOnce} from "@/app/useOnce"
 import {ConnectionEvent, microbitState} from "@/table/microbit"
 import {MicrobitState} from "@/x/microbit"
 
 export default function AllLogs() {
-	const initData = useOnce(AllLogLast)
+	const initData = useMemo(AllLogLast, [])
 	const index = useRef({first: initData.lastIndex - initData.logs.length + 1, last: initData.lastIndex})
 	const [logs, setLogs] = useState(initData.logs)
 	const lastCon = useRef(MicrobitState.NotConnection)

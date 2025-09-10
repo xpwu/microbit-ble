@@ -1,12 +1,11 @@
 'use client'
 
-import {useEffect, useRef, useState} from "react"
+import {useEffect, useMemo, useRef, useState} from "react"
 import {Nc} from "@/nc"
 import {CmdLog as Log, CmdLogEvent, CmdLogFrom, CmdLogLast, LogType} from "@/table/cmdlog"
-import {useOnce} from "@/app/useOnce"
 
 export default function CmdLog() {
-	const initData = useOnce(CmdLogLast)
+	const initData = useMemo(CmdLogLast, [])
 
 	const index = useRef({first: initData.lastIndex - initData.logs.length + 1, last: initData.lastIndex})
 	const [logs, setLogs] = useState(initData.logs)
