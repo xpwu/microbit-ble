@@ -1,6 +1,6 @@
 'use client'
 
-import {useEffect, useRef, useState, DragEvent} from "react"
+import {useEffect, useRef, useState, DragEvent, useCallback} from "react"
 import {Nc} from "@/nc"
 import {DataLogAllIds, DataLogEvent} from "@/table/datalog"
 import {UniqFlag} from "ts-xutils"
@@ -9,7 +9,7 @@ import {OneChartView} from "@/app/onechartview";
 
 
 function findPre(v: string): string {
-	let index = v.indexOf(".")
+	const index = v.indexOf(".")
 	if (index === -1) {
 		return ""
 	}
@@ -53,8 +53,8 @@ export function DataLog() {
 		deleteIndices = deleteIndices instanceof Array? deleteIndices : [deleteIndices]
 		insert = insert instanceof Array? insert : [insert]
 
-		let appendData: string[] = []
-		let insertSet = new Map<number, string>()
+		const appendData: string[] = []
+		const insertSet = new Map<number, string>()
 		for (const insertElement of insert) {
 			if (typeof insertElement === 'object' && insertElement.at !== -1) {
 				insertSet.set(insertElement.at, insertElement.id)
@@ -70,7 +70,7 @@ export function DataLog() {
 		}
 
 		setGroups(groups=>{
-			let newGroups:string[] = []
+			const newGroups:string[] = []
 			groups.forEach((v, i)=>{
 				if (insertSet.has(i)) {
 					newGroups.push(insertSet.get(i)!)
@@ -95,7 +95,7 @@ export function DataLog() {
 		})
 	}
 
-	function addIdsIntoDefaultGroup(ids: string[]) {
+	const addIdsIntoDefaultGroup = useCallback((ids: string[])=>{
 		ids.forEach((v)=> {
 			if (allIdsRef.current.has(v)) {
 				return
@@ -103,7 +103,7 @@ export function DataLog() {
 			allIdsRef.current.add(v)
 			const prefix = findPre(v)
 			if (prefix != "") {
-				for (const [_, value] of groupMapRef.current) {
+				for (const [, value] of groupMapRef.current) {
 					if (value.prefix == prefix) {
 						pushGroupIds(value, [v])
 						return
@@ -116,7 +116,7 @@ export function DataLog() {
 
 			updateGroups({insert:newGroupId})
 		})
-	}
+	}, [])
 
 	useEffect(()=>{
 		const item = Nc.addEvent(DataLogEvent, (e)=>{
@@ -126,11 +126,11 @@ export function DataLog() {
 		return ()=>{
 			item.remove()
 		}
-	}, [])
+	}, [addIdsIntoDefaultGroup])
 
 	useEffect(()=>{
 		addIdsIntoDefaultGroup(DataLogAllIds())
-	},[])
+	},[addIdsIntoDefaultGroup])
 
 	const currentDragRef = useRef<DragData>({groupId:"", groupIndex: -1})
 	const [insertPoint, setInsertPoint] = useState(-1)
@@ -194,7 +194,7 @@ export function DataLog() {
 		}
 		pushGroupIds(toGroup, [from.id])
 		removeGroupIds(fromGroup, [from.id])
-		let deleteId = freshGroupForId(from.groupId)?from.groupId:""
+		const deleteId = freshGroupForId(from.groupId)?from.groupId:""
 
 		updateGroups({deleteGIds:deleteId})
 	}
@@ -255,7 +255,7 @@ export function DataLog() {
 			return
 		}
 		removeGroupIds(draggedGroup, [draggedId])
-		let deleteId = freshGroupForId(dragged.groupId)?dragged.groupId:""
+		const deleteId = freshGroupForId(dragged.groupId)?dragged.groupId:""
 
 		const newGroupId = UniqFlag()
 		groupMapRef.current.set(newGroupId, {ids:[draggedId], prefix: findPre(draggedId)})

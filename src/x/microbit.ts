@@ -47,7 +47,7 @@ export class MicroBit {
 		}
 
 		this.state = MicrobitState.Connecting
-		let res = await this.runConnecting()
+		const res = await this.runConnecting()
 		if (res == null) {
 			console.log(`MicroBit(${this.logId}) --- connected: `, this.device.name)
 			this.state = MicrobitState.Connected
@@ -89,7 +89,7 @@ export class MicroBit {
 				}
 
 				txChar.oncharacteristicvaluechanged = ()=>{
-					let v = new TextDecoder().decode(txChar.value)
+					const v = new TextDecoder().decode(txChar.value)
 					console.debug(v)
 					this.onUARTReceiving(v)
 				}
@@ -157,11 +157,11 @@ export class MicroBit {
 		await Delay(delay)
 		console.log(`MicroBit(${this.logId}) --- reconnect.runConnecting...`, this.device.name)
 
-		let res = await this.runConnecting()
+		const err = await this.runConnecting()
 
 		// connected
-		if (res == null) {
-			// @ts-ignore
+		if (err == null) {
+			// @ts-expect-error: webstorm eslint error
 			if (this.state == MicrobitState.NotConnection) {
 				await this.rxChar?.stopNotifications()
 				this.device.gatt?.disconnect()
@@ -176,9 +176,9 @@ export class MicroBit {
 			return
 		}
 
-		console.warn(res.message)
+		console.warn(err.message)
 
-		if (res.message == "Bluetooth Device is no longer in range.") {
+		if (err.message == "Bluetooth Device is no longer in range.") {
 			console.debug("reconnect failed")
 			this.state = MicrobitState.NotConnection
 			await this.reConOption.onEnd()
@@ -213,7 +213,7 @@ export async function requestDevice(): Promise<BluetoothDevice|null> {
 
 export async function resumeDevice(deviceId: string): Promise<BluetoothDevice|null> {
 	try {
-		let all = await navigator.bluetooth.getDevices()
+		const all = await navigator.bluetooth.getDevices()
 		for (const v of all) {
 			if (v.id === deviceId) {
 				return v

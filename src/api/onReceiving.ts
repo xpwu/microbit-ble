@@ -5,7 +5,7 @@ import {Millisecond} from "ts-xutils"
 import {AllLogEvent, PushAllLog, Type} from "@/table/alllog"
 
 export function onReceiving(log: string) {
-	let lines = chunkDataIntoLines(log)
+	const lines = chunkDataIntoLines(log)
 	for (const line of lines) {
 		processOneLine(line)
 	}
@@ -15,7 +15,7 @@ const MaxURATInputDataLength = 255
 let buffer = ""
 
 function chunkDataIntoLines(data: string): string[] {
-	let lines: string[] = []
+	const lines: string[] = []
 	for (let i = 0; i < data.length; ++i) {
 		const ch = data[i]
 		buffer += ch

@@ -11,7 +11,7 @@ function LabelView({showIds, chartRef, lastValueRef, onDragLabel, startColor}:
                        , lastValueRef: RefObject<Map<string, number>>
 											 , onDragLabel: (id:string)=>void}) {
 
-  const [_, setVersion] = useState(0)
+  const [, setVersion] = useState(0)
 	const showIdsRef = useRef(showIds)
 
   useEffect(()=>{
@@ -62,7 +62,7 @@ export function OneChartView({showIds, startColor, onDragLabel}
   useEffect(()=>{
     const item =Nc.addEvent(DataLogEvent, (e)=>{
 			for (const id of e.ids) {
-				let lastIndex = indices.current.get(id)
+        const lastIndex = indices.current.get(id)
 				if (lastIndex === undefined) {
 					continue
 				}
@@ -93,7 +93,7 @@ export function OneChartView({showIds, startColor, onDragLabel}
 			if (indices.current.has(id)) {
 				continue
 			}
-			let last = DataLogLast(id)
+      const last = DataLogLast(id)
 			indices.current.set(id, last.lastIndex)
 
 			last.data.forEach(v=>{

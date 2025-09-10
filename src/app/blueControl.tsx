@@ -18,7 +18,7 @@ import {onReceiving} from "@/api/onReceiving"
 import {Delay, Second} from "ts-xutils"
 
 async function creatMicrobit(device: BluetoothDevice): Promise<[MicroBit, Error|null]> {
-	let microbit = new MicroBit(device, {max: 10
+	const microbit = new MicroBit(device, {max: 10
 		, onBeginning: async ()=>{
 			await Nc.post(new ConnectionEvent())
 		}, onEnd: async()=>{
@@ -26,7 +26,7 @@ async function creatMicrobit(device: BluetoothDevice): Promise<[MicroBit, Error|
 		}})
 	microbit.onUARTReceiving = onReceiving
 
-	let err = await microbit.connect()
+	const err = await microbit.connect()
 
 	return [microbit, err]
 }
@@ -35,7 +35,7 @@ async function connect() {
 	connectingDevice(true)
 	await Nc.post(new ConnectionEvent())
 
-	let device = await requestDevice()
+	const device = await requestDevice()
 	if (device == null) {
 		connectingDevice(false)
 		await Nc.post(new ConnectionEvent())
@@ -54,7 +54,7 @@ async function connect() {
 	await Delay(Second)
 	setCurrentMicrobit(null)
 
-	let [microbit, err] = await creatMicrobit(device)
+	const [microbit, err] = await creatMicrobit(device)
 	if (err == null) {
 		setCurrentMicrobit(microbit)
 		setLastDeviceId(device.id)
@@ -84,7 +84,7 @@ async function connectLastOne() {
 		return
 	}
 
-	let [microbit, err] = await creatMicrobit(device)
+	const [microbit, err] = await creatMicrobit(device)
 	if (err == null) {
 		setCurrentMicrobit(microbit)
 	}
@@ -109,14 +109,14 @@ export function BlueControl() {
 	const [con, setCon] = useState(microbitState())
 	useEffect(()=>{
 		const item =Nc.addEvent(ConnectionEvent, ()=>{
-			let st = microbitState()
+			const st = microbitState()
 			console.debug("BlueControl -- ConnectionEvent: ", MicrobitState[st])
 			setCon(st)
 		})
 		return ()=>{
 			item.remove()
 		}
-	}, [ConnectionEvent])
+	}, [])
 	useEffect(()=>{
 		connectLastOne().then()
 	}, [])

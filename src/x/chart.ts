@@ -57,7 +57,7 @@ export class Chart {
       // smoothie.d.ts type error
       const series = n.series as unknown as {options: {strokeStyle:string}; timeSeries: Smoothie.TimeSeries}
 
-      let color = series.options.strokeStyle || "#d6d3d1"
+      const color = series.options.strokeStyle || "#d6d3d1"
       return `<div class="text-xs" style="color: ${color}">${n.value}</div>`;
     }).join('');
 

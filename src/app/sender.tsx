@@ -33,7 +33,7 @@ async function send(e: FormEvent<HTMLFormElement>, clear: ()=>void) {
 	console.debug("send to micro:bit --- ", cmd)
 
 	PushCmdLog(cmd, LogType.Input)
-	let res = await sendToMicrobit(cmd)
+	const res = await sendToMicrobit(cmd)
 	if (res != null) {
 		PushCmdLog(res.message, LogType.ErrorLog)
 	}

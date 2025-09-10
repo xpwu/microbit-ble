@@ -32,11 +32,11 @@ export default function AllLogs() {
 		return ()=>{
 			item.remove()
 		}
-	}, [AllLogEvent])
+	}, [])
 
 	useEffect(()=>{
 		const item = Nc.addEvent(ConnectionEvent, ()=>{
-			let st = microbitState()
+			const st = microbitState()
 			const oldState = lastCon.current
 			lastCon.current = st
 			if (oldState != MicrobitState.Connected && st == MicrobitState.Connected) {
@@ -51,7 +51,7 @@ export default function AllLogs() {
 		return ()=>{
 			item.remove()
 		}
-	}, [ConnectionEvent])
+	}, [])
 
 	const autoScroll = useRef(true)
 
