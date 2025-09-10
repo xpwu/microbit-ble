@@ -141,11 +141,10 @@ export function DataLog() {
 			setInsertPoint(-1)
 		}
 	}
-	function runDropping(dropGroupIndex:number) {
+	function runDropping() {
 		const dragged = currentDragRef.current
-		// dragged node is dropped node  or dragged node is just the insert point
-		if ((dragged.groupIndex === dropGroupIndex || dragged.groupIndex === insertPoint)
-			&& isWholeGroup(dragged)) {
+		// dragged node is just the insert point && one group merge to another group
+		if (dragged.groupIndex === insertPoint && isWholeGroup(dragged)) {
 			return
 		}
 
@@ -182,6 +181,7 @@ export function DataLog() {
 			return
 		}
 
+		// id merge to group
 		const draggedId = dragged.dataId!
 		const draggedGroup = groupMapRef.current.get(dragged.groupId)
 		if (draggedGroup === undefined) {
@@ -194,6 +194,7 @@ export function DataLog() {
 			deleteId = dragged.groupId
 		}
 
+		// id escape from group
 		const newGroupId = UniqFlag()
 		groupMapRef.current.set(newGroupId, {ids:[draggedId], prefix: findPre(draggedId)})
 		let newGroups:string[] = []
@@ -211,26 +212,48 @@ export function DataLog() {
 		}
 		setGroups(newGroups)
 	}
-	function dropHandle(dropGroupIndex:number) {
+	function dropHandle() {
 		if (insertPoint === -1) {
 			return;
 		}
-		runDropping(dropGroupIndex)
+		runDropping()
 		setInsertPoint(-1)
 	}
 
+	const lastChart = useRef<HTMLDivElement|null>(null)
+	function bgDragOverHandle(e: DragEvent<HTMLDivElement>) {
+		e.preventDefault()
+
+		if (lastChart.current === null) {
+			return
+		}
+		const rect = lastChart.current.getBoundingClientRect()
+		const bgY = rect.y + rect.height
+		if (e.clientY < bgY || e.clientY > bgY + rect.height/2) {
+			setInsertPoint(-1)
+			return
+		}
+
+		setInsertPoint(groups.length)
+	}
+
 	return (
-		<>
+		<div className="h-full overflow-auto"
+				 onDragOver={e=>{e.stopPropagation(); bgDragOverHandle(e)}}
+				 onDragLeave={()=>setInsertPoint(-1)}
+				 onDrop={e=>{e.stopPropagation(); dropHandle()}}
+		>
+
 			{groups.map((v, i)=>
-				<div key={v} draggable={true}
+				<div key={v} draggable={true} ref={node=>{lastChart.current=node}}
 						 className= {cn("border-blue-500", {
 							 "border-t-2": insertPoint == i,
 							 "border-2": insertPoint == i + mergeFlag,
 						 })}
 						 onDragStart={()=>dragStartHandle(v, i)}
-						 onDragOver={e=>dragOverHandle(e, i)}
+						 onDragOver={e=>{e.stopPropagation(); dragOverHandle(e, i)}}
 						 onDragLeave={()=>setInsertPoint(-1)}
-						 onDrop={()=>dropHandle(i)}
+						 onDrop={e=>{e.stopPropagation(); dropHandle()}}
 				>
 
 					<div className="my-0.5">
@@ -240,6 +263,6 @@ export function DataLog() {
 				</div>
 				)}
 			<div className= {cn("border-blue-500", {"border-t-2":insertPoint == groups.length})}></div>
-		</>
+		</div>
 	)
 }
