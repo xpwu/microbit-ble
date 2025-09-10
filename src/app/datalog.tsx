@@ -88,7 +88,9 @@ export function DataLog() {
 
 				newGroups.push(v)
 			})
-
+			if (insertSet.has(groups.length)) {
+				newGroups.push(insertSet.get(groups.length)!)
+			}
 			newGroups.push(...appendData)
 
 			return newGroups
