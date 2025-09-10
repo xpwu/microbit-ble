@@ -42,8 +42,9 @@ function LabelView({showIds, chartRef, lastValueRef, onDragLabel, startColor}:
 				const timeS = chartRef.current.getLine(id)
         const color = chartRef.current.smoothie.getTimeSeriesOptions(timeS).strokeStyle || "#d6d3d1"
 
-        return <p key={id} draggable={true} style={{color: color}} className="text-xs hover:bg-slate-50"
-					onDragStart={e=>{e.stopPropagation(); onDragLabel(id)}}
+        return <p key={id} draggable={true} style={{color: color}}
+									className="text-xs hover:bg-slate-50"
+									onDragStart={e=>{e.stopPropagation(); onDragLabel(id)}}
 				>{id}{": " + showValue(id)}</p>
       })}
     </>
@@ -135,7 +136,9 @@ export function OneChartView({showIds, startColor, onDragLabel}
 					chartRef.current.closeToolTip()
         }
       }}></canvas>
-      <div className="absolute bottom-1 left-2 z-50 bg-neutral-300 p-1 rounded-sm border-1 border-neutral-500">
+      <div className={"absolute bottom-1 left-2 z-50 bg-neutral-300 p-1 " +
+				"rounded-sm border-1 border-neutral-500 overflow-y-auto max-h-24"}
+					 style={{scrollbarColor: '#a3a3a3 #d4d4d4', scrollbarWidth: "thin"}}>
         <LabelView chartRef={chartRef} showIds={showIds} startColor={startColor}
 									 lastValueRef={lastValueRef} onDragLabel={onDragLabel}/>
       </div>
