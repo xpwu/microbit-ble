@@ -30,14 +30,17 @@ function isWholeGroup(d: DragData): boolean {
 export function DataLog() {
 	const allIdsRef = useRef<Set<string>>(new Set<string>())
 	const groupMapRef = useRef(new Map<string, {ids:string[], prefix:string}>())
+	const [, setMapVersion] = useState(0)
 	const [groups, setGroups] = useState<readonly string[]>([])
 
 	// 因为 group.ids 被作为 props 传递给子组件，所以需要使用 concat 而不能使用 push 以满足状态"快照"的要求
 	function pushGroupIds(group:{ids:string[]}, ids:string[]) {
 		group.ids = group.ids.concat(ids)
+		setMapVersion(v=>v+1)
 	}
 	function removeGroupIds(group:{ids:string[]}, ids:string[]) {
 		group.ids = group.ids.filter(v=>!ids.includes(v))
+		setMapVersion(v=>v+1)
 	}
 
 	// insert: {at, id} --- insert 'id' at the 'at' pos, at=-1: append
