@@ -30,7 +30,7 @@ function isWholeGroup(d: DragData): boolean {
 export function DataLog() {
 	const allIdsRef = useRef<Set<string>>(new Set<string>())
 	const groupMapRef = useRef(new Map<string, {ids:string[], prefix:string}>())
-	const [groups, setGroups] = useState<string[]>([])
+	const [groups, setGroups] = useState<readonly string[]>([])
 
 	// 因为 group.ids 被作为 props 传递给子组件，所以需要使用 concat 而不能使用 push 以满足状态"快照"的要求
 	function pushGroupIds(group:{ids:string[]}, ids:string[]) {
@@ -40,26 +40,53 @@ export function DataLog() {
 		group.ids = group.ids.filter(v=>!ids.includes(v))
 	}
 
-	function updateGroups({deletedIds = [], deletedIndices = [], insertPoint = -1, insertedGIds = []}
-													: {deletedIds?: string[], deletedIndices?: number[], insertPoint?: number, insertedGIds?: string[]}) {
+	// insert: {at, id} --- insert 'id' at the 'at' pos, at=-1: append
+	// insert: string --- append
+	function updateGroups({deleteGIds = [], deleteIndices = [], insert = []}
+													: {deleteGIds?: string[]|string, deleteIndices?: number[]|number
+		, insert?: ({at:number, id:string}|string)[]|{at:number, id:string}|string}) {
+
+		deleteGIds = deleteGIds instanceof Array? deleteGIds : [deleteGIds]
+		deleteIndices = deleteIndices instanceof Array? deleteIndices : [deleteIndices]
+		insert = insert instanceof Array? insert : [insert]
+
+		let appendData: string[] = []
+		let insertSet = new Map<number, string>()
+		for (const insertElement of insert) {
+			if (typeof insertElement === 'object' && insertElement.at !== -1) {
+				insertSet.set(insertElement.at, insertElement.id)
+				continue
+			}
+
+			// insertElement is string || insertElement.at === -1
+			let pushId = insertElement
+			if (typeof pushId === 'object') {
+				pushId = pushId.id
+			}
+			appendData.push(pushId)
+		}
 
 		setGroups(groups=>{
 			let newGroups:string[] = []
 			groups.forEach((v, i)=>{
-				if (deletedIds.includes(v)) {
+				if (insertSet.has(i)) {
+					newGroups.push(insertSet.get(i)!)
+				}
+				if (insertSet.has(i-(1+groups.length))) {
+					newGroups.push(insertSet.get(i)!)
+				}
+
+				if (deleteGIds.includes(v)) {
 					return
 				}
-				if (deletedIndices.includes(i)) {
+				if (deleteIndices.includes(i)) {
 					return
 				}
-				if (i === insertPoint) {
-					newGroups.push(...insertedGIds)
-				}
+
 				newGroups.push(v)
 			})
-			if (insertPoint === groups.length || insertPoint === -1) {
-				newGroups.push(...insertedGIds)
-			}
+
+			newGroups.push(...appendData)
 
 			return newGroups
 		})
@@ -84,7 +111,7 @@ export function DataLog() {
 			const newGroupId = UniqFlag()
 			groupMapRef.current.set(newGroupId, {ids: [v], prefix: prefix})
 
-			updateGroups({insertedGIds:[newGroupId]})
+			updateGroups({insert:newGroupId})
 		})
 	}
 
@@ -149,7 +176,7 @@ export function DataLog() {
 		pushGroupIds(toGroup, fromGroup.ids)
 		groupMapRef.current.delete(fromGroupId)
 
-		updateGroups({deletedIds:[fromGroupId]})
+		updateGroups({deleteGIds:fromGroupId})
 	}
 	function mergeIdIntoGroup(from: { groupId: string, id: string }, toGroupId: string) {
 		const fromGroup = groupMapRef.current.get(from.groupId)
@@ -166,7 +193,7 @@ export function DataLog() {
 		removeGroupIds(fromGroup, [from.id])
 		let deleteId = freshGroupForId(from.groupId)?from.groupId:""
 
-		updateGroups({deletedIds:[deleteId]})
+		updateGroups({deleteGIds:deleteId})
 	}
 
 	function dragStartHandle(dragGroupId: string, dragGroupIndex: number) {
@@ -213,8 +240,8 @@ export function DataLog() {
 		}
 
 		if (isWholeGroup(dragged)) {
-			updateGroups({deletedIndices:[currentDragRef.current.groupIndex]
-				, insertPoint:insertPoint, insertedGIds:[currentDragRef.current.groupId]})
+			updateGroups({deleteIndices: currentDragRef.current.groupIndex
+				, insert: {at: insertPoint, id: currentDragRef.current.groupId}})
 			return
 		}
 
@@ -230,8 +257,7 @@ export function DataLog() {
 		const newGroupId = UniqFlag()
 		groupMapRef.current.set(newGroupId, {ids:[draggedId], prefix: findPre(draggedId)})
 
-		updateGroups({deletedIds:[deleteId]
-			, insertPoint: insertPoint, insertedGIds:[newGroupId]})
+		updateGroups({deleteGIds: deleteId, insert: {at: insertPoint, id: newGroupId}})
 	}
 	function dropHandle() {
 		if (insertPoint === -1) {
