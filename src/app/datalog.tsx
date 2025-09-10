@@ -40,7 +40,32 @@ export function DataLog() {
 		group.ids = group.ids.filter(v=>!ids.includes(v))
 	}
 
-	function updateData(ids: string[]) {
+	function updateGroups({deletedIds = [], deletedIndices = [], insertPoint = -1, insertedGIds = []}
+													: {deletedIds?: string[], deletedIndices?: number[], insertPoint?: number, insertedGIds?: string[]}) {
+
+		setGroups(groups=>{
+			let newGroups:string[] = []
+			groups.forEach((v, i)=>{
+				if (deletedIds.includes(v)) {
+					return
+				}
+				if (deletedIndices.includes(i)) {
+					return
+				}
+				if (i === insertPoint) {
+					newGroups.push(...insertedGIds)
+				}
+				newGroups.push(v)
+			})
+			if (insertPoint === groups.length || insertPoint === -1) {
+				newGroups.push(...insertedGIds)
+			}
+
+			return newGroups
+		})
+	}
+
+	function addIdsIntoDefaultGroup(ids: string[]) {
 		ids.forEach((v)=> {
 			if (allIdsRef.current.has(v)) {
 				return
@@ -56,24 +81,25 @@ export function DataLog() {
 				}
 			}
 
-			const flag = UniqFlag()
-			groupMapRef.current.set(flag, {ids: [v], prefix: prefix})
-			setGroups(groups=>groups.concat(flag))
+			const newGroupId = UniqFlag()
+			groupMapRef.current.set(newGroupId, {ids: [v], prefix: prefix})
+
+			updateGroups({insertedGIds:[newGroupId]})
 		})
 	}
 
 	useEffect(()=>{
 		const item = Nc.addEvent(DataLogEvent, (e)=>{
-			updateData(e.ids)
+			addIdsIntoDefaultGroup(e.ids)
 		})
 
 		return ()=>{
 			item.remove()
 		}
-	}, [DataLogEvent])
+	}, [])
 
 	useEffect(()=>{
-		updateData(DataLogAllIds())
+		addIdsIntoDefaultGroup(DataLogAllIds())
 	},[])
 
 	const currentDragRef = useRef<DragData>({groupId:"", groupIndex: -1})
@@ -108,27 +134,6 @@ export function DataLog() {
 		}
 		g.prefix = pre
 		return false
-	}
-	function updateGroups({deletedIds = [], deletedIndices = [], insertPoint = -1, insertedGIds = []}
-		: {deletedIds?: string[], deletedIndices?: number[], insertPoint?: number, insertedGIds?: string[]}) {
-
-		let newGroups:string[] = []
-		groups.forEach((v, i)=>{
-			if (deletedIds.includes(v)) {
-				return
-			}
-			if (deletedIndices.includes(i)) {
-				return
-			}
-			if (i === insertPoint) {
-				newGroups.push(...insertedGIds)
-			}
-			newGroups.push(v)
-		})
-		if (insertPoint === groups.length) {
-			newGroups.push(...insertedGIds)
-		}
-		setGroups(newGroups)
 	}
 	function mergeGroupIntoGroup(fromGroupId: string, toGroupId: string) {
 		const fromGroup = groupMapRef.current.get(fromGroupId)
