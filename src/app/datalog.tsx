@@ -40,7 +40,7 @@ export function DataLog() {
 		group.ids = group.ids.filter(v=>!ids.includes(v))
 	}
 
-	function updateGroup(ids: string[]) {
+	function updateData(ids: string[]) {
 		ids.forEach((v)=> {
 			if (allIdsRef.current.has(v)) {
 				return
@@ -64,7 +64,7 @@ export function DataLog() {
 
 	useEffect(()=>{
 		const item = Nc.addEvent(DataLogEvent, (e)=>{
-			updateGroup(e.ids)
+			updateData(e.ids)
 		})
 
 		return ()=>{
@@ -73,14 +73,64 @@ export function DataLog() {
 	}, [DataLogEvent])
 
 	useEffect(()=>{
-		updateGroup(DataLogAllIds())
+		updateData(DataLogAllIds())
 	},[])
 
 	const currentDragRef = useRef<DragData>({groupId:"", groupIndex: -1})
 	const [insertPoint, setInsertPoint] = useState(-1)
 	const mergeFlag = 1000
 
-	function mergeGroupToGroup(fromGroupId: string, toGroupId: string) {
+	type Deleted = boolean
+	function freshGroupForId(groupId: string): Deleted {
+		const g = groupMapRef.current.get(groupId)
+		if (g === undefined) {
+			return true
+		}
+		if (g.ids.length === 0) {
+			groupMapRef.current.delete(groupId)
+			return true
+		}
+
+		let pre = ""
+		for (const id of g.ids) {
+			const p = findPre(id)
+			if (p === "") {
+				break
+			}
+			if (pre === "") {
+				pre = p
+				continue
+			}
+			if (pre !== p) {
+				pre = ""
+				break
+			}
+		}
+		g.prefix = pre
+		return false
+	}
+	function updateGroups({deletedIds = [], deletedIndices = [], insertPoint = -1, insertedGIds = []}
+		: {deletedIds?: string[], deletedIndices?: number[], insertPoint?: number, insertedGIds?: string[]}) {
+
+		let newGroups:string[] = []
+		groups.forEach((v, i)=>{
+			if (deletedIds.includes(v)) {
+				return
+			}
+			if (deletedIndices.includes(i)) {
+				return
+			}
+			if (i === insertPoint) {
+				newGroups.push(...insertedGIds)
+			}
+			newGroups.push(v)
+		})
+		if (insertPoint === groups.length) {
+			newGroups.push(...insertedGIds)
+		}
+		setGroups(newGroups)
+	}
+	function mergeGroupIntoGroup(fromGroupId: string, toGroupId: string) {
 		const fromGroup = groupMapRef.current.get(fromGroupId)
 		const toGroup = groupMapRef.current.get(toGroupId)
 		if (fromGroup === undefined || toGroup === undefined) {
@@ -94,9 +144,9 @@ export function DataLog() {
 		pushGroupIds(toGroup, fromGroup.ids)
 		groupMapRef.current.delete(fromGroupId)
 
-		setGroups(g=>g.filter(value => value !== fromGroupId))
+		updateGroups({deletedIds:[fromGroupId]})
 	}
-	function mergeIdToGroup(from: { groupId: string, id: string }, toGroupId: string) {
+	function mergeIdIntoGroup(from: { groupId: string, id: string }, toGroupId: string) {
 		const fromGroup = groupMapRef.current.get(from.groupId)
 		const toGroup = groupMapRef.current.get(toGroupId)
 		if (fromGroup === undefined || toGroup === undefined) {
@@ -109,14 +159,9 @@ export function DataLog() {
 		}
 		pushGroupIds(toGroup, [from.id])
 		removeGroupIds(fromGroup, [from.id])
+		let deleteId = freshGroupForId(from.groupId)?from.groupId:""
 
-		let deleteId = ""
-		if (fromGroup.ids.length === 0) {
-			groupMapRef.current.delete(from.groupId)
-			deleteId = from.groupId
-		}
-
-		setGroups(g=>g.filter(value => value !== deleteId))
+		updateGroups({deletedIds:[deleteId]})
 	}
 
 	function dragStartHandle(dragGroupId: string, dragGroupIndex: number) {
@@ -154,63 +199,34 @@ export function DataLog() {
 				return
 			}
 			if (isWholeGroup(dragged)) {
-				mergeGroupToGroup(dragged.groupId, groups[toPoint])
+				mergeGroupIntoGroup(dragged.groupId, groups[toPoint])
 				return
 			}
 
-			mergeIdToGroup({groupId: dragged.groupId, id: dragged.dataId!}, groups[toPoint])
+			mergeIdIntoGroup({groupId: dragged.groupId, id: dragged.dataId!}, groups[toPoint])
 			return
 		}
 
 		if (isWholeGroup(dragged)) {
-			let newGroups:string[] = []
-			groups.forEach((v, i)=>{
-				if (i === currentDragRef.current.groupIndex) {
-					return
-				}
-				if (i === insertPoint) {
-					newGroups.push(currentDragRef.current.groupId)
-				}
-				newGroups.push(v)
-			})
-			if (insertPoint === groups.length) {
-				newGroups.push(currentDragRef.current.groupId)
-			}
-			setGroups(newGroups)
-
+			updateGroups({deletedIndices:[currentDragRef.current.groupIndex]
+				, insertPoint:insertPoint, insertedGIds:[currentDragRef.current.groupId]})
 			return
 		}
 
-		// id merge to group
+		// id escape from group
 		const draggedId = dragged.dataId!
 		const draggedGroup = groupMapRef.current.get(dragged.groupId)
 		if (draggedGroup === undefined) {
 			return
 		}
 		removeGroupIds(draggedGroup, [draggedId])
-		let deleteId = ""
-		if (draggedGroup.ids.length === 0) {
-			groupMapRef.current.delete(dragged.groupId)
-			deleteId = dragged.groupId
-		}
+		let deleteId = freshGroupForId(dragged.groupId)?dragged.groupId:""
 
-		// id escape from group
 		const newGroupId = UniqFlag()
 		groupMapRef.current.set(newGroupId, {ids:[draggedId], prefix: findPre(draggedId)})
-		let newGroups:string[] = []
-		groups.forEach((v, i)=>{
-			if (v === deleteId) {
-				return
-			}
-			if (i === insertPoint) {
-				newGroups.push(newGroupId)
-			}
-			newGroups.push(v)
-		})
-		if (insertPoint === groups.length) {
-			newGroups.push(newGroupId)
-		}
-		setGroups(newGroups)
+
+		updateGroups({deletedIds:[deleteId]
+			, insertPoint: insertPoint, insertedGIds:[newGroupId]})
 	}
 	function dropHandle() {
 		if (insertPoint === -1) {
