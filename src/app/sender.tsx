@@ -5,7 +5,6 @@ import {currentMicrobit} from "@/table/microbit"
 import {CmdLogEvent, LogType, PushCmdLog} from "@/table/cmdlog"
 import {Nc} from "@/nc"
 import cn from "classnames";
-import {Delay, Second} from "ts-xutils";
 import {FontAwesomeIcon} from "@fortawesome/react-fontawesome";
 import {faSpinner} from "@fortawesome/free-solid-svg-icons";
 
@@ -46,13 +45,12 @@ async function send(e: FormEvent<HTMLFormElement>) {
 
 export default function Sender() {
 	const [input, setInput] = useState("")
-	const [sending, setSending] = useState(true)
+	const [sending, setSending] = useState(false)
 
 	return (
 		<form className = "flex h-12" onSubmit={async e => {
 			setSending(true)
 			await send(e)
-			await Delay(3*Second)
 			setSending(false)
 			setInput("");
 		}}>
@@ -108,9 +106,9 @@ export default function Sender() {
 								"border-l-gray-300")}
 			>
 				发送
-				<div className={cn("absolute bottom-1/2 right-1/2 z-50 my-auto text-gray-700")} hidden={!sending}>
-					<FontAwesomeIcon icon={faSpinner} spinPulse size="lg"/>
-				</div>
+				<FontAwesomeIcon icon={faSpinner} spinPulse size="lg"
+												 className="absolute inset-0 z-50 text-gray-700 m-auto"
+												 style={{display: sending?'block':'none'}}/>
 			</button>
 
 		</form>
