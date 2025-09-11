@@ -17,7 +17,7 @@ async function sendToMicrobit(cmd: string): Promise<Error|null> {
 	return res
 }
 
-async function send(e: FormEvent<HTMLFormElement>, clear: ()=>void) {
+async function send(e: FormEvent<HTMLFormElement>) {
 	// 阻止浏览器重新加载页面
 	e.preventDefault();
 
@@ -38,15 +38,18 @@ async function send(e: FormEvent<HTMLFormElement>, clear: ()=>void) {
 		PushCmdLog(res.message, LogType.ErrorLog)
 	}
 	await Nc.post(new CmdLogEvent)
-
-	clear()
 }
 
 export default function Sender() {
 	const [input, setInput] = useState("")
 
 	return (
-		<form className = "flex h-12" onSubmit={e => send(e, ()=>setInput(""))}>
+		<form className = "flex h-12" onSubmit={async e => {
+			/* todo: disable*/
+			await send(e)
+			/* todo: enable*/
+			setInput("");
+		}}>
 			<input name="cmd" type="text" placeholder="input command"
 						 value={input} onChange={e => setInput(e.target.value)}
 						 className="flex-1 h-full px-4 border border-gray-300 rounded-l-lg

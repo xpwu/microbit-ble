@@ -189,13 +189,17 @@ export class MicroBit {
 	}
 
 	async send(cmd: string): Promise<Error|null> {
-		if (this.state != MicrobitState.Connected || this.rxChar == null) {
-			return new Error("not connected")
+		try {
+			if (this.state != MicrobitState.Connected || this.rxChar == null) {
+				return new Error("not connected")
+			}
+
+			await this.rxChar.writeValue(new TextEncoder().encode(cmd))
+
+			return null
+		} catch (e) {
+			return e as Error
 		}
-
-		await this.rxChar.writeValue(new TextEncoder().encode(cmd))
-
-		return null
 	}
 }
 
