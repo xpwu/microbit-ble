@@ -1,5 +1,6 @@
 import {Delay, formatDuration, Second, UniqFlag} from "ts-xutils"
 import {withTimeout} from "ts-concurrency"
+import {Mutex} from "ts-concurrency/src/mutex"
 
 const UART_SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e'; // must be lowercase!
 const UART_TX_CHARACTERISTIC_UUID = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';
@@ -33,6 +34,8 @@ export class MicroBit {
 
 	private rxChar: BluetoothRemoteGATTCharacteristic| null = null
 	public state: MicrobitState = MicrobitState.NotConnection
+
+	private sendMutex = new Mutex()
 
 	constructor(public device: BluetoothDevice, protected reConOption: ReConnectOption) {
 		console.log(`MicroBit(${this.logId}) --- device.name: `, device.name, "; device.id: ", device.id)
@@ -194,7 +197,19 @@ export class MicroBit {
 				return new Error("not connected")
 			}
 
-			await this.rxChar.writeValue(new TextEncoder().encode(cmd))
+			// https://lancaster-university.github.io/microbit-docs/resources/bluetooth/bluetooth_profile.html
+			const MTU = 20
+
+			const rxChar = this.rxChar
+			const text = new TextEncoder().encode(cmd)
+			let offset = 0
+
+			await this.sendMutex.withLock(async ()=>{
+				while (offset < text.byteLength) {
+					await rxChar.writeValue(text.slice(offset, offset+MTU))
+					offset += MTU
+				}
+			})
 
 			return null
 		} catch (e) {
