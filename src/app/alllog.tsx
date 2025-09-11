@@ -49,7 +49,7 @@ export default function AllLogs() {
 	}, [logs])
 
 	return (
-		<div className="w-full h-full overflow-auto" ref={(node)=>{
+		<div className="w-full h-full overflow-y-auto wrap-break-word" ref={(node)=>{
 			if (node === null) {
 				return
 			}

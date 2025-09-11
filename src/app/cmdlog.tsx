@@ -36,7 +36,7 @@ export default function CmdLog() {
 	}, [logs])
 
 	return (
-		<>
+		<div className="overflow-y-auto wrap-break-word">
 			{/*key = the index of table/cmdlog, not logs*/}
 			{logs.map((v, i)=> {
 				switch (v.type) {
@@ -51,6 +51,6 @@ export default function CmdLog() {
 				}
 			})}
 			<div ref={endRef}></div>
-		</>
+		</div>
 	)
 }
