@@ -38,7 +38,9 @@ function chunkDataIntoLines(data: string): string[] {
 }
 
 function processOneLine(line: string) {
-	PushAllLog(line, Type.MicrobitLog)
+	const since1970 = Date.now() * Millisecond
+
+	PushAllLog(line, Type.MicrobitLog, since1970)
 	Nc.post(new AllLogEvent).then()
 
 	// is this a key-value pair, or just a number?
@@ -48,7 +50,7 @@ function processOneLine(line: string) {
 		const id = regRes[2] || '';
 		const value = parseFloat(regRes[3]);
 		if (!isNaN(value)) {
-			PushData(id, {since1970: Date.now() * Millisecond, value: value})
+			PushData(id, {since1970, value})
 			Nc.post(new DataLogEvent([id])).then()
 			return;
 		}

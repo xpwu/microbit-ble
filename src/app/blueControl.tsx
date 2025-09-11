@@ -1,6 +1,6 @@
 'use client'
 
-import {useEffect, useState} from "react"
+import {useEffect, useRef, useState} from "react"
 import {FontAwesomeIcon} from "@fortawesome/react-fontawesome"
 import {faBluetooth} from "@fortawesome/free-brands-svg-icons"
 import {Nc} from "@/nc"
@@ -15,7 +15,8 @@ import {
 } from "@/table/microbit"
 import {isAvailable, MicroBit, MicrobitState, requestDevice, resumeDevice} from "@/x/microbit"
 import {onReceiving} from "@/api/onReceiving"
-import {Delay, Second} from "ts-xutils"
+import {Delay, Millisecond, Second} from "ts-xutils"
+import {AllLogEvent, PushAllLog, Type} from "@/table/alllog"
 
 async function creatMicrobit(device: BluetoothDevice): Promise<[MicroBit, Error|null]> {
 	const microbit = new MicroBit(device, {max: 10
@@ -107,11 +108,20 @@ function notSupport() {
 
 export function BlueControl() {
 	const [con, setCon] = useState(microbitState())
+	const lastCon = useRef(microbitState())
+
 	useEffect(()=>{
-		const item =Nc.addEvent(ConnectionEvent, ()=>{
+		const item =Nc.addEvent(ConnectionEvent, async ()=>{
 			const st = microbitState()
 			console.debug("BlueControl -- ConnectionEvent: ", MicrobitState[st])
 			setCon(st)
+
+			const oldState = lastCon.current
+			lastCon.current = st
+			if (oldState != MicrobitState.Connected && st == MicrobitState.Connected) {
+				PushAllLog("---<new connection>---", Type.Tips, Date.now()*Millisecond)
+				await Nc.post(new AllLogEvent())
+			}
 		})
 		return ()=>{
 			item.remove()

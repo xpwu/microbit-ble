@@ -1,4 +1,5 @@
 import {CreateNCEvent} from "ts-nc";
+import {Duration} from "ts-xutils"
 
 
 export const AllLogEvent = CreateNCEvent<number>("AllLogEvent")
@@ -10,6 +11,7 @@ export enum Type {
 export interface Log {
 	type: Type
 	log: string
+	since1970: Duration
 }
 
 const allLogs:Log[] = []
@@ -23,6 +25,6 @@ export function AllLogFrom(fromIndex: number) : Log[] {
   return allLogs.slice(fromIndex)
 }
 
-export function PushAllLog(log: string, type: Type) {
-	allLogs.push({type: type, log: log})
+export function PushAllLog(log: string, type: Type, since1970: Duration) {
+	allLogs.push({log, type, since1970})
 }
