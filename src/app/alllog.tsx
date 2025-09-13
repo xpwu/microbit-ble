@@ -46,6 +46,8 @@ export default function AllLogs() {
 	const {ref: observerPreFlagNode, inView: preFlagInView} = useInView({initialInView: true})
 	const {ref: observerNextFlagNode, inView: nextFlagInView} = useInView({initialInView: true})
 
+	logsLenRef.current = logs.length
+
 	const loadPrePage = useCallback(async (ignoreScroll: boolean)=>{
 		if (containerNodeRef.current === null) {
 			return
@@ -60,35 +62,33 @@ export default function AllLogs() {
 
 		const first = indexRef.current.first
 		setHeaderState(MoreState.Loading)
-		const newLogs = LoadUntil(first, page)
-		if (newLogs.length === 0) {
-			setHeaderState(MoreState.NoMore)
+		const newLogs = LoadUntil(first, page).map((v, i, thisLogs) => {
+			return {key: indexRef.current.first - thisLogs.length + i, val: v}
+		})
+		setHeaderState(MoreState.HasMore)
+		if (first != indexRef.current.first) {
 			return
 		}
-		setHeaderState(MoreState.HasMore)
-		setLogs(logs => {
-			if (first != indexRef.current.first) {
-				return logs
+		if (!ignoreScroll) {
+			if (containerNodeRef.current.scrollTop > scrollTop) {
+				return
 			}
-			if (!ignoreScroll) {
-				if (containerNodeRef.current === null || containerNodeRef.current.scrollTop > scrollTop) {
-					return logs
-				}
-			}
+		}
 
-			if (newLogs.length < page) {
-				setHeaderState(MoreState.NoMore)
-			}
-			const added = newLogs.map((v, i) => {
-				return {key: indexRef.current.first - newLogs.length + i, val: v}
-			})
+		if (newLogs.length < page) {
+			setHeaderState(MoreState.NoMore)
+		}
+		if (newLogs.length === 0) {
+			return
+		}
 
-			indexRef.current.first -= newLogs.length
-			const res = added.concat(logs.slice(0, 4 * page - newLogs.length))
-			indexRef.current.end = res.at(-1)!.key + 1
+		const allLen = newLogs.length + logsLenRef.current
+		const sliceStart = 0
+		const sliceEnd = 4 * page < allLen ? 4*page : allLen
+		indexRef.current.first -= newLogs.length
+		indexRef.current.end = indexRef.current.first + sliceEnd
 
-			return res
-		})
+		setLogs(logs => newLogs.concat(logs).slice(sliceStart, sliceEnd))
 	}, [])
 
 	const loadNextPage = useCallback(async (ignoreScroll: boolean)=>{
@@ -105,56 +105,42 @@ export default function AllLogs() {
 
 		const end = indexRef.current.end
 		setFooterState(MoreState.Loading)
-		const newLogs = LoadFrom(end, page)
-		if (newLogs.length === 0) {
-			setFooterState(MoreState.NoMore)
+		const newLogs = LoadFrom(end, page).map((v, i) => {
+			return {key: indexRef.current.end + i, val: v}
+		})
+		setFooterState(MoreState.HasMore)
+		if (end != indexRef.current.end) {
 			return
 		}
-		setFooterState(MoreState.HasMore)
-		setLogs(logs => {
-			if (end != indexRef.current.end) {
-				return logs
+		if (!ignoreScroll) {
+			if (containerNodeRef.current.scrollTop < scrollTop) {
+				return
 			}
-			if (!ignoreScroll) {
-				if (containerNodeRef.current === null || containerNodeRef.current.scrollTop < scrollTop) {
-					return logs
-				}
-			}
+		}
 
-			if (newLogs.length < page) {
-				setFooterState(MoreState.NoMore)
-			}
-			const added = newLogs.map((v, i) => {
-				return {key: indexRef.current.end + i, val: v}
-			})
+		if (newLogs.length < page) {
+			setFooterState(MoreState.NoMore)
+		}
+		if (newLogs.length === 0) {
+			return
+		}
 
-			indexRef.current.end += newLogs.length
-			let sliceStart = logs.length - (4*page - newLogs.length)
-			sliceStart = sliceStart < 0 ? 0 : sliceStart
-			const res = logs.slice(sliceStart).concat(added)
-			indexRef.current.first = res[0].key
+		const allLen = logsLenRef.current + newLogs.length
+		const sliceStart = 4 * page > allLen ? 0 : allLen - 4*page
+		const sliceEnd = allLen
+		indexRef.current.end += newLogs.length
+		indexRef.current.first += sliceStart
 
-			return res
-		})
+		setLogs(logs => logs.concat(newLogs).slice(sliceStart, sliceEnd))
 	}, [])
 
-	useEffect(()=>{
-		logsLenRef.current = logs.length
-	}, [logs])
-
-	useEffect(()=>{
-		if (!hasMorePageRef.current.pre  || !preFlagInView) {
-			return
-		}
+	if (preFlagInView && hasMorePageRef.current.pre) {
 		loadPrePage(false).then()
-	}, [preFlagInView, loadPrePage])
+	}
 
-	useEffect(()=>{
-		if (!hasMorePageRef.current.next || !nextFlagInView) {
-			return
-		}
+	if (hasMorePageRef.current.next && nextFlagInView) {
 		loadNextPage(false).then()
-	}, [nextFlagInView, loadNextPage])
+	}
 
 	useEffect(()=>{
 		const item =Nc.addEvent(AllLogEvent, ()=>{
@@ -164,43 +150,37 @@ export default function AllLogs() {
 			}
 
 			const end = indexRef.current.end
-			const newLogs = LoadFrom(end)
+			const newLogs = LoadFrom(end).map((v, i) => {
+				return {key: indexRef.current.end + i, val: v}
+			})
+
 			if (newLogs.length === 0) {
 				return
 			}
+			if (end != indexRef.current.end) {
+				return
+			}
+			setFooterState(MoreState.NoMore)
 
-			setLogs(logs =>{
-				setFooterState(MoreState.NoMore)
+			let sliceStart = 0
+			const allLen = logsLenRef.current + newLogs.length
+			let sliceEnd = allLen
 
-				if (end != indexRef.current.end) {
-					return logs
-				}
-
-				const added = newLogs.map((v, i) => {
-					return {key: indexRef.current.end + i, val: v}
-				})
-
-				let res = logs.concat(added)
-
-				if (showStateRef.current === ShowState.AutoScrolling) {
-					indexRef.current.end += newLogs.length
-					let sliceStart = res.length - 2*page
-					sliceStart = sliceStart < 0 ? 0 : sliceStart
-					res = res.slice(sliceStart)
-					indexRef.current.first = res[0].key
-
-					return res
-				}
-
-				if (res.length > 4*page) {
+			if (showStateRef.current === ShowState.AutoScrolling) {
+				indexRef.current.end += newLogs.length
+				sliceStart = allLen - 2*page
+				sliceStart = sliceStart < 0 ? 0 : sliceStart
+				indexRef.current.first += sliceStart
+			} else {
+				indexRef.current.first += 0
+				if (allLen > 4*page) {
 					setFooterState(MoreState.HasMore)
+					sliceEnd = 4*page
 				}
-				res = res.slice(0, 4*page)
-				indexRef.current.first = res[0].key
-				indexRef.current.end = res.at(-1)!.key + 1
+				indexRef.current.end = indexRef.current.first + sliceEnd
+			}
 
-				return res
-			})
+			setLogs(logs =>logs.concat(newLogs).slice(sliceStart, sliceEnd))
 		})
 		return ()=>{
 			item.remove()
@@ -210,22 +190,21 @@ export default function AllLogs() {
 	// state and auto-scroll
 	const {ref: observerLastNode, inView: lastNodeInView} = useInView({threshold: 0.1, initialInView:true})
 	const lastNodeRef = useRef<HTMLParagraphElement>(null)
+	showStateRef.current = lastNodeInView?ShowState.AutoScrolling:ShowState.ManualScrolling
+
 	useEffect(()=>{
 		if (showStateRef.current === ShowState.AutoScrolling) {
 			lastNodeRef.current?.scrollIntoView({behavior:"instant"})
 		}
 		observerLastNode(lastNodeRef.current)
 	}, [logs])
-	useEffect(()=>{
-		showStateRef.current = lastNodeInView?ShowState.AutoScrolling:ShowState.ManualScrolling
-	}, [lastNodeInView])
 
 	const last = useCallback(async() => {
 		showStateRef.current = ShowState.AutoScrolling
 		const newLogs = Last(2*page)
+		setFooterState(MoreState.NoMore)
 		setLogs(() => {
 			indexRef.current = {first: newLogs.endIndex - newLogs.logs.length, end: newLogs.endIndex}
-			setFooterState(MoreState.NoMore)
 			return newLogs.logs.map((v, i)=>{return {key: indexRef.current.first + i, val: v}})
 		})
 	}, [])
