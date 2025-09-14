@@ -39,7 +39,7 @@ export function LoadUntil(endIndex: number, length: number): Log[] {
 	if (start < 0) {
 		start = 0
 	}
-	return allLogs.slice(start, length)
+	return allLogs.slice(start, endIndex)
 }
 
 export function PushAllLog(log: string, type: Type, since1970: Duration) {

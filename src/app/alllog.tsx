@@ -37,14 +37,14 @@ export default function AllLogs() {
 
 	const showStateRef = useRef(ShowState.AutoScrolling)
 
-	const hasMorePageRef = useRef({pre: initData.logs.length === 2*page, next: false})
-	const [headerState, setHeaderState] = useState(hasMorePageRef.current.pre? MoreState.HasMore: MoreState.NoMore)
-	const [footerState, setFooterState] = useState(hasMorePageRef.current.next? MoreState.HasMore: MoreState.NoMore)
+	const [headerState, setHeaderState] = useState(
+		initData.logs.length === 2*page? MoreState.HasMore: MoreState.NoMore)
+	const [footerState, setFooterState] = useState(MoreState.NoMore)
 
 	const containerNodeRef = useRef<HTMLDivElement>(null)
 
-	const {ref: observerPreFlagNode, inView: preFlagInView} = useInView({initialInView: true})
-	const {ref: observerNextFlagNode, inView: nextFlagInView} = useInView({initialInView: true})
+	// const {ref: observerPreFlagNode, inView: preFlagInView} = useInView({initialInView: true})
+	// const {ref: observerNextFlagNode, inView: nextFlagInView} = useInView({initialInView: true})
 
 	logsLenRef.current = logs.length
 
@@ -63,9 +63,11 @@ export default function AllLogs() {
 		const first = indexRef.current.first
 		setHeaderState(MoreState.Loading)
 		const newLogs = LoadUntil(first, page).map((v, i, thisLogs) => {
-			return {key: indexRef.current.first - thisLogs.length + i, val: v}
+			return {key: first - thisLogs.length + i, val: v}
 		})
 		setHeaderState(MoreState.HasMore)
+		// 上面的数据获取后面可能会存在异步获取的情况
+		// 所以使用数据前，需要再次确认是否有其他操作已经改变了数据，或者滚动过滚动条
 		if (first != indexRef.current.first) {
 			return
 		}
@@ -85,6 +87,9 @@ export default function AllLogs() {
 		const allLen = newLogs.length + logsLenRef.current
 		const sliceStart = 0
 		const sliceEnd = 4 * page < allLen ? 4*page : allLen
+		if (sliceEnd < allLen) {
+			setFooterState(MoreState.HasMore)
+		}
 		indexRef.current.first -= newLogs.length
 		indexRef.current.end = indexRef.current.first + sliceEnd
 
@@ -106,9 +111,11 @@ export default function AllLogs() {
 		const end = indexRef.current.end
 		setFooterState(MoreState.Loading)
 		const newLogs = LoadFrom(end, page).map((v, i) => {
-			return {key: indexRef.current.end + i, val: v}
+			return {key: end + i, val: v}
 		})
 		setFooterState(MoreState.HasMore)
+		// 上面的数据获取后面可能会存在异步获取的情况
+		// 所以使用数据前，需要再次确认是否有其他操作已经改变了数据，或者滚动过滚动条
 		if (end != indexRef.current.end) {
 			return
 		}
@@ -128,32 +135,39 @@ export default function AllLogs() {
 		const allLen = logsLenRef.current + newLogs.length
 		const sliceStart = 4 * page > allLen ? 0 : allLen - 4*page
 		const sliceEnd = allLen
+		if (sliceStart > 0) {
+			setHeaderState(MoreState.HasMore)
+		}
 		indexRef.current.end += newLogs.length
 		indexRef.current.first += sliceStart
 
+		forceTo(ShowState.ManualScrolling)
 		setLogs(logs => logs.concat(newLogs).slice(sliceStart, sliceEnd))
 	}, [])
 
-	if (preFlagInView && hasMorePageRef.current.pre) {
-		loadPrePage(false).then()
-	}
-
-	if (hasMorePageRef.current.next && nextFlagInView) {
-		loadNextPage(false).then()
-	}
+	// if (preFlagInView && headerState === MoreState.HasMore) {
+	// 	loadPrePage(false).then()
+	// }
+	//
+	// if (footerState === MoreState.HasMore && nextFlagInView) {
+	// 	loadNextPage(false).then()
+	// }
 
 	useEffect(()=>{
 		const item =Nc.addEvent(AllLogEvent, ()=>{
 			if (showStateRef.current === ShowState.ManualScrolling && logsLenRef.current >= 4*page) {
 				setFooterState(MoreState.HasMore)
+				forceTo(ShowState.ManualScrolling)
 				return
 			}
 
 			const end = indexRef.current.end
 			const newLogs = LoadFrom(end).map((v, i) => {
-				return {key: indexRef.current.end + i, val: v}
+				return {key: end + i, val: v}
 			})
 
+			// 上面的数据获取后面可能会存在异步获取的情况
+			// 所以使用数据前，需要再次确认是否有其他操作已经改变了数据
 			if (newLogs.length === 0) {
 				return
 			}
@@ -171,6 +185,9 @@ export default function AllLogs() {
 				sliceStart = allLen - 2*page
 				sliceStart = sliceStart < 0 ? 0 : sliceStart
 				indexRef.current.first += sliceStart
+				if (sliceStart > 0) {
+					setHeaderState(MoreState.HasMore)
+				}
 			} else {
 				indexRef.current.first += 0
 				if (allLen > 4*page) {
@@ -190,75 +207,95 @@ export default function AllLogs() {
 	// state and auto-scroll
 	const {ref: observerLastNode, inView: lastNodeInView} = useInView({threshold: 0.1, initialInView:true})
 	const lastNodeRef = useRef<HTMLParagraphElement>(null)
-	showStateRef.current = lastNodeInView?ShowState.AutoScrolling:ShowState.ManualScrolling
+	const forceScrollModel = useRef(false)
+	if (!forceScrollModel.current) {
+		showStateRef.current = lastNodeInView?ShowState.AutoScrolling:ShowState.ManualScrolling
+	}
+
+	function forceTo(state: ShowState) {
+		forceScrollModel.current = true
+		showStateRef.current = state
+	}
 
 	useEffect(()=>{
-		if (showStateRef.current === ShowState.AutoScrolling) {
+		if (showStateRef.current === ShowState.AutoScrolling ) {
 			lastNodeRef.current?.scrollIntoView({behavior:"instant"})
 		}
+		forceScrollModel.current = false
+		// todo: scroll
 		observerLastNode(lastNodeRef.current)
 	}, [logs])
 
 	const last = useCallback(async() => {
-		showStateRef.current = ShowState.AutoScrolling
+		const end = indexRef.current.end
+		setFooterState(MoreState.Loading)
 		const newLogs = Last(2*page)
+		// 上面的数据获取后面可能会存在异步获取的情况
+		// 所以使用数据前，需要再次确认是否有其他操作已经改变了数据
+		if (end != indexRef.current.end) {
+			return
+		}
 		setFooterState(MoreState.NoMore)
-		setLogs(() => {
-			indexRef.current = {first: newLogs.endIndex - newLogs.logs.length, end: newLogs.endIndex}
-			return newLogs.logs.map((v, i)=>{return {key: indexRef.current.first + i, val: v}})
-		})
+		if (newLogs.logs.length === 2*page) {
+			setHeaderState(MoreState.HasMore)
+		}
+
+		if (newLogs.logs.length === 0) {
+			return
+		}
+
+		indexRef.current = {first: newLogs.endIndex - newLogs.logs.length, end: newLogs.endIndex}
+		const res = newLogs.logs.map((v, i)=>{return {key: indexRef.current.first + i, val: v}})
+		forceTo(ShowState.AutoScrolling)
+		setLogs(res)
 	}, [])
 
 	return (
-		<div className="relative w-full h-full overflow-y-auto wrap-break-word" ref={containerNodeRef}>
-			<button className={cn('my-1 mx-auto w-fit text-gray-600 border '
-				, ' rounded-lg hover:border-blue-300 text-[12px] p-0'
-				, (headerState != MoreState.HasMore? "hidden": "block"))}
-							onClick={()=>loadPrePage(true)}>加载更多</button>
-			<div className={cn('my-1 mx-auto w-fit text-gray-400 text-[12px]'
-				, (headerState != MoreState.NoMore? "hidden": "block"))}>------到顶了------</div>
-			<FontAwesomeIcon icon={faSpinner} spinPulse size="xs"
-											 style={{display: headerState != MoreState.Loading? "none": "block"}}
-											 className={'mx-auto my-1 text-gray-400'}/>
+		<div className="relative w-full h-full">
+			<div className="w-full h-full overflow-y-auto wrap-break-word" ref={containerNodeRef}>
+				<button className={cn('my-1 mx-auto w-fit text-gray-600 border '
+					, ' rounded-lg hover:border-blue-300 text-[12px] p-0'
+					, (headerState != MoreState.HasMore? "hidden": "block"))}
+								onClick={()=>loadPrePage(true)}>加载更多</button>
+				<div className={cn('my-1 mx-auto w-fit text-gray-400 text-[12px]'
+					, (headerState != MoreState.NoMore? "hidden": "block"))}>------到顶了------</div>
+				<FontAwesomeIcon icon={faSpinner} spinPulse size="xs"
+												 style={{display: headerState != MoreState.Loading? "none": "block"}}
+												 className={'mx-auto my-1 text-gray-400'}/>
 
-			{logs.map((v, i)=> {
-				const time = timeFormatter(new Date(v.val.since1970/Millisecond))
-				const nextMoreIndex = showStateRef.current === ShowState.AutoScrolling ? logs.length : logs.length - page
-				const preMoreIndex = page
-				return (
-					<p key={v.key}
-						 ref={node => {
-							 lastNodeRef.current = node
-							 if (i === nextMoreIndex) {
-								 observerNextFlagNode(node)
-							 }
-							 if (i === preMoreIndex) {
-								 observerPreFlagNode(node)
-							 }
-						 }}>
-						{v.val.type === Type.MicrobitLog ?
-							<>
-								<span className='text-gray-300'>{time}&nbsp;{'>'}&nbsp;</span>
-								<span className='text-gray-700'>{v.val.log}</span>
-							</> : <>
-								<span className='text-gray-300'>{time}&nbsp;&nbsp;&nbsp;&nbsp;</span>
-								<span className='text-gray-400'>{v.val.log}</span>
-							</>
-						}
-				</p>)
-			})}
+				{logs.map((v, i, thisLogs)=> {
+					const time = timeFormatter(new Date(v.val.since1970/Millisecond))
+					return (
+						<p key={v.key}
+							 ref={node => {
+								 if (i === thisLogs.length - 1) {
+									 lastNodeRef.current = node
+								 }
+							 }}
+						>
+							{v.val.type === Type.MicrobitLog ?
+								<>
+									<span className='text-gray-300'>{time}&nbsp;{'>'}&nbsp;</span>
+									<span className='text-gray-700'>{v.val.log}</span>
+								</> : <>
+									<span className='text-gray-300'>{time}&nbsp;&nbsp;&nbsp;&nbsp;</span>
+									<span className='text-gray-400'>{v.val.log}</span>
+								</>
+							}
+					</p>)
+				})}
 
-			<button className={cn('my-1 mx-auto w-fit text-gray-600 border '
-				, ' rounded-lg hover:border-blue-300 text-[12px] p-0 block'
-				, (footerState != MoreState.HasMore? "hidden": "block"))}
-							onClick={()=>loadNextPage(true)}>加载更多</button>
-			<FontAwesomeIcon icon={faSpinner} spinPulse size="xs"
-											 style={{display: footerState != MoreState.Loading? "none": "block"}}
-											 className={'mx-auto my-1 text-gray-400'}/>
-
+				<button className={cn('my-1 mx-auto w-fit text-gray-600 border '
+					, ' rounded-lg hover:border-blue-300 text-[12px] p-0 block'
+					, (footerState != MoreState.HasMore? "hidden": "block"))}
+								onClick={()=>loadNextPage(true)}>加载更多</button>
+				<FontAwesomeIcon icon={faSpinner} spinPulse size="xs"
+												 style={{display: footerState != MoreState.Loading? "none": "block"}}
+												 className={'mx-auto my-1 text-gray-400'}/>
+			</div>
 			<FontAwesomeIcon icon={faAnglesDown} size="xs" onClick={last}
 											 style={{display: footerState != MoreState.HasMore? "none": "block"}}
-											 className={'absolute right-5 bottom-2 text-blue-300 hover:text-blue-500'}/>
+											 className={'absolute right-5 bottom-2 z-50 text-blue-300 hover:text-blue-500'}/>
 		</div>
 	)
 }
