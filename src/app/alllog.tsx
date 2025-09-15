@@ -31,7 +31,7 @@ export default function AllLogs() {
 	const initData = useMemo(()=>Last(2*page), [])
 	// [first, end) 来表示 logs 与底层数据之间的对应关系
 	const indexRef = useRef({first: initData.endIndex - initData.logs.length, end: initData.endIndex})
-	const [logs, setLogs] = useState<{key:number, val:Log}[]>(initData.logs.map(
+	const [logs, setOriLogs] = useState<{key:number, val:Log}[]>(initData.logs.map(
 		(v, i)=>{return {key: indexRef.current.first + i, val: v}}))
 	const logsLenRef = useRef(logs.length)
 
@@ -43,10 +43,40 @@ export default function AllLogs() {
 
 	const containerNodeRef = useRef<HTMLDivElement>(null)
 
-	// const {ref: observerPreFlagNode, inView: preFlagInView} = useInView({initialInView: true})
+	const {ref: observerPreFlagNode, inView: preFlagInView} = useInView({initialInView: true})
 	// const {ref: observerNextFlagNode, inView: nextFlagInView} = useInView({initialInView: true})
 
 	logsLenRef.current = logs.length
+
+	function setLogs(f: ((logs: {key:number, val:Log}[])=>{key:number, val:Log}[]) | {key:number, val:Log}[]) {
+		if (typeof f === 'object') {
+			if (f.length !== 0) {
+				indexRef.current.first = f[0].key
+				indexRef.current.end = f.at(-1)!.key + 1
+			}
+			console.assert(indexRef.current.end - indexRef.current.first === f.length)
+			setOriLogs(f)
+			return
+		}
+		setOriLogs(logs => {
+			let res = f(logs)
+			const set = new Set<number>()
+			res = res.filter(v => {
+				if (set.has(v.key)) {
+					return false
+				}
+				set.add(v.key)
+				return true
+			})
+			if (res.length !== 0) {
+				indexRef.current.first = res[0].key
+				indexRef.current.end = res.at(-1)!.key + 1
+			}
+
+			console.assert(indexRef.current.end - indexRef.current.first === f.length)
+			return res
+		})
+	}
 
 	const loadPrePage = useCallback(async (ignoreScroll: boolean)=>{
 		if (containerNodeRef.current === null) {
@@ -145,10 +175,10 @@ export default function AllLogs() {
 		setLogs(logs => logs.concat(newLogs).slice(sliceStart, sliceEnd))
 	}, [])
 
-	// if (preFlagInView && headerState === MoreState.HasMore) {
-	// 	loadPrePage(false).then()
-	// }
-	//
+	if (preFlagInView && headerState === MoreState.HasMore) {
+		loadPrePage(false).then()
+	}
+
 	// if (footerState === MoreState.HasMore && nextFlagInView) {
 	// 	loadNextPage(false).then()
 	// }
@@ -204,12 +234,13 @@ export default function AllLogs() {
 	}, [])
 
 	// state and auto-scroll
-	const {ref: observerLastNode, inView: previousLastNodeInView} = useInView({threshold: 0.1})
-	const firstShowNodeRef = useRef<HTMLParagraphElement>(null)
+	const {ref: observerLastNode, inView: previousLastNodeInView} = useInView({threshold: 0.1, initialInView: true})
+	const firstNodeRef = useRef<HTMLParagraphElement>(null)
 	const lastNodeRef = useRef<HTMLParagraphElement>(null)
 	const forceShowModel = useRef(false)
 	if (!forceShowModel.current) {
-		showStateRef.current = previousLastNodeInView?ShowState.Latest:ShowState.Selection
+		showStateRef.current = (previousLastNodeInView&&footerState!==MoreState.HasMore)
+			? ShowState.Latest : ShowState.Selection
 	}
 
 	function forceTo(state: ShowState) {
@@ -217,10 +248,14 @@ export default function AllLogs() {
 		showStateRef.current = state
 	}
 
+	const scrollFRef = useRef<()=>void>(null)
+
 	useEffect(()=>{
 		if (showStateRef.current === ShowState.Latest ) {
 			lastNodeRef.current?.scrollIntoView({behavior:"instant"})
 		}
+		scrollFRef.current && scrollFRef.current()
+		scrollFRef.current = null
 		forceShowModel.current = false
 		observerLastNode(lastNodeRef.current)
 	}, [logs])
@@ -255,7 +290,16 @@ export default function AllLogs() {
 				<button className={cn('my-1 mx-auto w-fit text-gray-600 border '
 					, ' rounded-lg hover:border-blue-300 text-[12px] p-0'
 					, (headerState != MoreState.HasMore? "hidden": "block"))}
-								onClick={()=>loadPrePage(true)}>加载更多</button>
+								onClick={async ()=>{
+									const node = firstNodeRef.current
+									const firstY = node?.getBoundingClientRect().y || 0
+									scrollFRef.current = ()=>{
+										const nowY = node?.getBoundingClientRect().y || 0
+										containerNodeRef.current?.scrollTo(0, nowY - firstY)
+									}
+									await loadPrePage(true)
+
+								}}>加载更多</button>
 				<div className={cn('my-1 mx-auto w-fit text-gray-400 text-[12px]'
 					, (headerState != MoreState.NoMore? "hidden": "block"))}>------到顶了------</div>
 				<FontAwesomeIcon icon={faSpinner} spinPulse size="xs"
@@ -268,15 +312,13 @@ export default function AllLogs() {
 						<p key={v.key}
 							 ref={node => {
 								 if (i === 0) {
-									 firstShowNodeRef.current = node
+									 firstNodeRef.current = node
+								 }
+								 if (i === page) {
+									 observerPreFlagNode(node)
 								 }
 								 if (i === thisLogs.length - 1) {
-									 if (footerState === MoreState.HasMore) {
-										 // lastNode 没有render
-										 lastNodeRef.current = null
-									 } else {
-										 lastNodeRef.current = node
-									 }
+									 lastNodeRef.current = node
 								 }
 							 }}
 						>
