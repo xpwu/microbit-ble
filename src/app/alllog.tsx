@@ -20,11 +20,11 @@ function timeFormatter(date: Date) {
 const page = 30
 
 enum ShowState {
-	ManualScrolling, AutoScrolling
+	Latest, Selection
 }
 
 enum MoreState {
-	Loading, NoMore, HasMore
+	NoMore, Loading, HasMore
 }
 
 export default function AllLogs() {
@@ -35,7 +35,7 @@ export default function AllLogs() {
 		(v, i)=>{return {key: indexRef.current.first + i, val: v}}))
 	const logsLenRef = useRef(logs.length)
 
-	const showStateRef = useRef(ShowState.AutoScrolling)
+	const showStateRef = useRef(ShowState.Latest)
 
 	const [headerState, setHeaderState] = useState(
 		initData.logs.length === 2*page? MoreState.HasMore: MoreState.NoMore)
@@ -141,7 +141,7 @@ export default function AllLogs() {
 		indexRef.current.end += newLogs.length
 		indexRef.current.first += sliceStart
 
-		forceTo(ShowState.ManualScrolling)
+		forceTo(ShowState.Selection)
 		setLogs(logs => logs.concat(newLogs).slice(sliceStart, sliceEnd))
 	}, [])
 
@@ -155,9 +155,8 @@ export default function AllLogs() {
 
 	useEffect(()=>{
 		const item =Nc.addEvent(AllLogEvent, ()=>{
-			if (showStateRef.current === ShowState.ManualScrolling && logsLenRef.current >= 4*page) {
+			if (showStateRef.current === ShowState.Selection && logsLenRef.current >= 4*page) {
 				setFooterState(MoreState.HasMore)
-				forceTo(ShowState.ManualScrolling)
 				return
 			}
 
@@ -180,7 +179,7 @@ export default function AllLogs() {
 			const allLen = logsLenRef.current + newLogs.length
 			let sliceEnd = allLen
 
-			if (showStateRef.current === ShowState.AutoScrolling) {
+			if (showStateRef.current === ShowState.Latest) {
 				indexRef.current.end += newLogs.length
 				sliceStart = allLen - 2*page
 				sliceStart = sliceStart < 0 ? 0 : sliceStart
@@ -205,24 +204,24 @@ export default function AllLogs() {
 	}, [])
 
 	// state and auto-scroll
-	const {ref: observerLastNode, inView: lastNodeInView} = useInView({threshold: 0.1, initialInView:true})
+	const {ref: observerLastNode, inView: previousLastNodeInView} = useInView({threshold: 0.1})
+	const firstShowNodeRef = useRef<HTMLParagraphElement>(null)
 	const lastNodeRef = useRef<HTMLParagraphElement>(null)
-	const forceScrollModel = useRef(false)
-	if (!forceScrollModel.current) {
-		showStateRef.current = lastNodeInView?ShowState.AutoScrolling:ShowState.ManualScrolling
+	const forceShowModel = useRef(false)
+	if (!forceShowModel.current) {
+		showStateRef.current = previousLastNodeInView?ShowState.Latest:ShowState.Selection
 	}
 
 	function forceTo(state: ShowState) {
-		forceScrollModel.current = true
+		forceShowModel.current = true
 		showStateRef.current = state
 	}
 
 	useEffect(()=>{
-		if (showStateRef.current === ShowState.AutoScrolling ) {
+		if (showStateRef.current === ShowState.Latest ) {
 			lastNodeRef.current?.scrollIntoView({behavior:"instant"})
 		}
-		forceScrollModel.current = false
-		// todo: scroll
+		forceShowModel.current = false
 		observerLastNode(lastNodeRef.current)
 	}, [logs])
 
@@ -246,7 +245,7 @@ export default function AllLogs() {
 
 		indexRef.current = {first: newLogs.endIndex - newLogs.logs.length, end: newLogs.endIndex}
 		const res = newLogs.logs.map((v, i)=>{return {key: indexRef.current.first + i, val: v}})
-		forceTo(ShowState.AutoScrolling)
+		forceTo(ShowState.Latest)
 		setLogs(res)
 	}, [])
 
@@ -268,8 +267,16 @@ export default function AllLogs() {
 					return (
 						<p key={v.key}
 							 ref={node => {
+								 if (i === 0) {
+									 firstShowNodeRef.current = node
+								 }
 								 if (i === thisLogs.length - 1) {
-									 lastNodeRef.current = node
+									 if (footerState === MoreState.HasMore) {
+										 // lastNode 没有render
+										 lastNodeRef.current = null
+									 } else {
+										 lastNodeRef.current = node
+									 }
 								 }
 							 }}
 						>
