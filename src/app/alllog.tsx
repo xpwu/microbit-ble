@@ -1,6 +1,6 @@
 'use client'
 
-import {Dispatch, RefObject, SetStateAction, useCallback, useEffect, useMemo, useRef, useState} from "react"
+import {Dispatch, RefObject, SetStateAction, useCallback, useEffect, useRef, useState} from "react"
 import {Nc} from "@/nc"
 import {AllLogEvent, Last, LoadFrom, LoadUntil, Log, Type} from "@/table/alllog"
 import {Delay, Millisecond} from "ts-xutils"
@@ -71,7 +71,7 @@ type MergeShowLogsHookResponse = [
 	indexRef: Readonly<RefObject<{readonly first: number, readonly end: number }>>
 };
 
-function useMergeShowLogs(initialState: ShowLog[] | (() => ShowLog[])): MergeShowLogsHookResponse {
+function useMergeShowLogs(initialState: ShowLog[] | (() => ShowLog[]) = []): MergeShowLogsHookResponse {
 	const [logs, setOriLogs] = useState<ShowLog[]>(initialState)
 	const setLogs = useCallback<Dispatch<SetStateAction<ShowLog[]>>>((f: SetStateAction<ShowLog[]>) => {
 		if (typeof f === 'object') {
@@ -126,18 +126,39 @@ function usePostRender(...deps: any[]): RefObject<()=>void> {
 }
 
 export default function AllLogs() {
-	const initData = useMemo(()=>Last(2*page), [])
-
-	const [logs, setLogs, indexRef] = useMergeShowLogs(initData.logs.map(
-		(v, i)=>{return {key: initData.endIndex - initData.logs.length + i, val: v}}))
-
-	const [lastNodeRef, isLatestRef] = useShowLatest(logs)
-
+	const [logs, setLogs, indexRef] = useMergeShowLogs()
+	const [headerState, setHeaderState] = useState(MoreState.NoMore)
+	const [footerState, setFooterState] = useState(MoreState.NoMore)
 	const postRender = usePostRender(logs)
 
-	const [headerState, setHeaderState] = useState(
-		initData.logs.length === 2*page? MoreState.HasMore: MoreState.NoMore)
-	const [footerState, setFooterState] = useState(MoreState.NoMore)
+	const last = useCallback(async() => {
+		const end = indexRef.current.end
+		setFooterState(MoreState.Loading)
+		const newLogs = await Last(2*page)
+		// 异步获取数据后，用户可能做了其他操作
+		// 所以使用数据前，需要再次确认是否有其他操作已经改变了数据
+		if (end != indexRef.current.end) {
+			return
+		}
+		setFooterState(MoreState.NoMore)
+		if (newLogs.logs.length === 2*page) {
+			setHeaderState(MoreState.HasMore)
+		}
+
+		if (newLogs.logs.length === 0) {
+			return
+		}
+
+		const first = newLogs.endIndex - newLogs.logs.length
+		const res = newLogs.logs.map((v, i)=>{return {key: first + i, val: v}})
+		postRender.current = ()=>lastNodeRef.current?.scrollIntoView({behavior:"instant"})
+		setLogs(res)
+	}, [])
+	useEffect(()=>{
+		last().then()
+	}, [])
+
+	const [lastNodeRef, isLatestRef] = useShowLatest(logs)
 
 	const containerNodeRef = useRef<HTMLDivElement>(null)
 
@@ -156,11 +177,11 @@ export default function AllLogs() {
 
 		const first = indexRef.current.first
 		setHeaderState(MoreState.Loading)
-		const newLogs = LoadUntil(first, page).map((v, i, thisLogs) => {
+		const newLogs = (await LoadUntil(first, page)).map((v, i, thisLogs) => {
 			return {key: first - thisLogs.length + i, val: v}
 		})
 		setHeaderState(MoreState.HasMore)
-		// 上面的数据获取后面可能会存在异步获取的情况
+		// 异步获取数据后，用户可能做了其他操作
 		// 所以使用数据前，需要再次确认是否有其他操作已经改变了数据，或者滚动过滚动条
 		if (first != indexRef.current.first) {
 			return
@@ -209,11 +230,11 @@ export default function AllLogs() {
 
 		const end = indexRef.current.end
 		setFooterState(MoreState.Loading)
-		const newLogs = LoadFrom(end, page).map((v, i) => {
+		const newLogs = (await LoadFrom(end, page)).map((v, i) => {
 			return {key: end + i, val: v}
 		})
 		setFooterState(MoreState.HasMore)
-		// 上面的数据获取后面可能会存在异步获取的情况
+		// 异步获取数据后，用户可能做了其他操作
 		// 所以使用数据前，需要再次确认是否有其他操作已经改变了数据，或者滚动过滚动条
 		if (end != indexRef.current.end) {
 			return
@@ -248,18 +269,17 @@ export default function AllLogs() {
 	}, [nextFlagInView])
 
 	useEffect(()=>{
-		const item =Nc.addEvent(AllLogEvent, ()=>{
+		const item =Nc.addEvent(AllLogEvent, async ()=>{
 			if (!isLatestRef.current && indexRef.current.len >= 4*page) {
 				setFooterState(MoreState.HasMore)
 				return
 			}
 
 			const end = indexRef.current.end
-			const newLogs = LoadFrom(end).map((v, i) => {
+			const newLogs = (await LoadFrom(end)).map((v, i) => {
 				return {key: end + i, val: v}
 			})
-
-			// 上面的数据获取后面可能会存在异步获取的情况
+			// 异步获取数据后，用户可能做了其他操作
 			// 所以使用数据前，需要再次确认是否有其他操作已经改变了数据
 			if (newLogs.length === 0) {
 				return
@@ -294,30 +314,6 @@ export default function AllLogs() {
 	}, [])
 
 	const firstNodeRef = useRef<HTMLParagraphElement>(null)
-
-	const last = useCallback(async() => {
-		const end = indexRef.current.end
-		setFooterState(MoreState.Loading)
-		const newLogs = Last(2*page)
-		// 上面的数据获取后面可能会存在异步获取的情况
-		// 所以使用数据前，需要再次确认是否有其他操作已经改变了数据
-		if (end != indexRef.current.end) {
-			return
-		}
-		setFooterState(MoreState.NoMore)
-		if (newLogs.logs.length === 2*page) {
-			setHeaderState(MoreState.HasMore)
-		}
-
-		if (newLogs.logs.length === 0) {
-			return
-		}
-
-		const first = newLogs.endIndex - newLogs.logs.length
-		const res = newLogs.logs.map((v, i)=>{return {key: first + i, val: v}})
-		postRender.current = ()=>lastNodeRef.current?.scrollIntoView({behavior:"instant"})
-		setLogs(res)
-	}, [])
 
 	let latestDateStr = ""
 	type GroupStr = string

@@ -17,11 +17,11 @@ export interface Log {
 const allLogs:Log[] = []
 
 // endIndex: logs 最后一个元素的下一个元素在原数组对应的 index
-export function Last(lastCnt: number = 10): {logs: Log[], endIndex: number} {
+export async function Last(lastCnt: number = 10): Promise<{ logs: Log[], endIndex: number }> {
   return {logs: allLogs.slice(-1*lastCnt), endIndex: allLogs.length}
 }
 
-export function LoadFrom(fromIndex: number, length?: number): Log[] {
+export async function LoadFrom(fromIndex: number, length?: number): Promise<Log[]> {
 	if (length === undefined) {
 		length = allLogs.length
 	}
@@ -31,7 +31,7 @@ export function LoadFrom(fromIndex: number, length?: number): Log[] {
   return allLogs.slice(fromIndex, fromIndex+length)
 }
 
-export function LoadUntil(endIndex: number, length: number): Log[] {
+export async function LoadUntil(endIndex: number, length: number): Promise<Log[]> {
 	if (length <= 0) {
 		return []
 	}
@@ -42,6 +42,6 @@ export function LoadUntil(endIndex: number, length: number): Log[] {
 	return allLogs.slice(start, endIndex)
 }
 
-export function PushAllLog(log: string, type: Type, since1970: Duration) {
+export async function PushAllLog(log: string, type: Type, since1970: Duration) {
 	allLogs.push({log, type, since1970})
 }
