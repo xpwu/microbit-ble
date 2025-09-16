@@ -12,15 +12,20 @@ export interface Data {
 }
 
 // Data[]  必须按照 timestamp 的顺序放入数组中
-const dataLogs = new Map<DataId, Data[]>()
+const dataLogs = new Map<DataId, {data: Data[], offset: number}>()
 
 export function PushData(id: DataId, data: Data) {
   let values = dataLogs.get(id)
   if (values === undefined) {
-    values = []
+    values = {data: [], offset: 0}
     dataLogs.set(id, values)
   }
-  values.push(data)
+  values.data.push(data)
+	if (values.data.length > 50) {
+		const oldLen = values.data.length
+		values.data = values.data.slice(-30)
+		values.offset += oldLen - values.data.length
+	}
 }
 
 export function DataLogFrom(id: DataId, fromIndex: number): Data[] {
@@ -29,7 +34,17 @@ export function DataLogFrom(id: DataId, fromIndex: number): Data[] {
     return []
   }
 
-  return values.slice(fromIndex)
+	let start = fromIndex - values.offset
+	if (start >= 0) {
+		return values.data.slice(start)
+	}
+
+	const res:Data[] = new Array<Data>(-1*start)
+	for (const i in res) {
+		res[i] = {since1970: 0, value: 0}
+	}
+
+	return res.concat(values.data)
 }
 
 export function DataLogLast(id: DataId, lastCnt: number = 10): {data: Data[], lastIndex: number} {
@@ -39,10 +54,9 @@ export function DataLogLast(id: DataId, lastCnt: number = 10): {data: Data[], la
   }
 
   return {
-    data: values.slice(-1*lastCnt),
-    lastIndex: values.length - 1
+    data: values.data.slice(-1*lastCnt),
+    lastIndex: values.data.length - 1 + values.offset
   }
-
 }
 
 export function DataLogAllIds(): string[] {
