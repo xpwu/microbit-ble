@@ -136,8 +136,6 @@ export default function AllLogs() {
 	const containerNodeRef = useRef<HTMLDivElement>(null)
 
 	const {ref: observerPreFlagNode, inView: preFlagInView} = useInView({initialInView: true})
-	const {ref: observerNextFlagNode, inView: nextFlagInView} = useInView({initialInView: true})
-
 	const loadPrePage = useCallback(async (ignoreScroll: boolean)=>{
 		if (containerNodeRef.current === null) {
 			return
@@ -183,7 +181,14 @@ export default function AllLogs() {
 
 		setLogs(logs => newLogs.concat(logs).slice(sliceStart, sliceEnd))
 	}, [])
+	useEffect(()=>{
+		if (!preFlagInView || headerState !== MoreState.HasMore) {
+			return
+		}
+		loadPrePage(false).then()
+	}, [preFlagInView])
 
+	const {ref: observerNextFlagNode, inView: nextFlagInView} = useInView({initialInView: true})
 	const loadNextPage = useCallback(async (ignoreScroll: boolean)=>{
 		if (containerNodeRef.current === null) {
 			return
@@ -229,14 +234,12 @@ export default function AllLogs() {
 
 		setLogs(logs => logs.concat(newLogs).slice(sliceStart, sliceEnd))
 	}, [])
-
-	// if (preFlagInView && headerState === MoreState.HasMore) {
-	// 	loadPrePage(false).then()
-	// }
-
-	// if (footerState === MoreState.HasMore && nextFlagInView) {
-	// 	loadNextPage(false).then()
-	// }
+	useEffect(()=>{
+		if (footerState !== MoreState.HasMore || !nextFlagInView) {
+			return
+		}
+		loadNextPage(false).then()
+	}, [nextFlagInView])
 
 	useEffect(()=>{
 		const item =Nc.addEvent(AllLogEvent, ()=>{
