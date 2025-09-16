@@ -19,6 +19,12 @@ function timeFormatter(date: Date) {
 		+ ':' + pad2(date.getSeconds()) + '.' + pad3(date.getMilliseconds());
 }
 
+function dateFormatter(date: Date) {
+	function pad2(number: number) { return (number < 10 ? '0' : '') + number }
+
+	return pad2(date.getFullYear()) + '.' + pad2(date.getMonth()+1) + '.' + pad2(date.getDate());
+}
+
 const page = 30
 
 enum MoreState {
@@ -313,6 +319,24 @@ export default function AllLogs() {
 		setLogs(res)
 	}, [])
 
+	let latestDateStr = ""
+	type GroupStr = string
+	const jsxLogs: (GroupStr|ShowLog)[] = []
+	logs.forEach(v=>{
+		const date = new Date(v.val.since1970/Millisecond)
+		let dateStr = dateFormatter(date)
+		if (latestDateStr === dateStr) {
+			jsxLogs.push(v)
+		} else {
+			jsxLogs.push(dateStr)
+			latestDateStr = dateStr
+		}
+	})
+
+	function isShowLog(v: GroupStr|ShowLog): v is ShowLog {
+		return typeof v !== "string"
+	}
+
 	return (
 		<div className="relative w-full h-full">
 			<div className="w-full h-full overflow-y-auto wrap-break-word" ref={containerNodeRef}>
@@ -336,39 +360,45 @@ export default function AllLogs() {
 												 style={{display: headerState != MoreState.Loading? "none": "block"}}
 												 className={'mx-auto my-1 text-gray-400'}/>
 
-				{logs.map((v, i, thisLogs)=> {
-					const time = timeFormatter(new Date(v.val.since1970/Millisecond))
+				{jsxLogs.map((v, i, thisLogs)=> {
+					const time = isShowLog(v)?timeFormatter(new Date(v.val.since1970/Millisecond)):""
 					return (
-						<p key={v.key}
-							 ref={node => {
-								 if (i === 0) {
-									 firstNodeRef.current = node
-								 }
-								 if (i === page - 1) {
-									 observerPreFlagNode(node)
-								 }
-								 if (i === thisLogs.length - page) {
-									 observerNextFlagNode(node)
-								 }
-								 if (i === thisLogs.length - 1) {
-									 if (footerState === MoreState.HasMore) {
-										 lastNodeRef.current = null
-									 } else {
-										 lastNodeRef.current = node
+						!isShowLog(v) ?
+							<p key={v}
+								 className={cn("text-gray-200 border w-fit rounded-xl"
+									 , "px-1 text-[14px] bg-gray-400")}
+							>{v}</p> :
+							<p key={v.key}
+								 ref={node => {
+									 // i === 0 一定是 group 信息，所以取 i === 1
+									 if (i === 1) {
+										 firstNodeRef.current = node
 									 }
-								 }
-							 }}
-						>
-							{v.val.type === Type.MicrobitLog ?
-								<>
-									<span className='text-gray-300'>{time}&nbsp;{'>'}&nbsp;</span>
-									<span className='text-gray-700'>{v.val.log}</span>
-								</> : <>
-									<span className='text-gray-300'>{time}&nbsp;&nbsp;&nbsp;&nbsp;</span>
-									<span className='text-gray-400'>{v.val.log}</span>
-								</>
-							}
-					</p>)
+									 if (i === page - 1) {
+										 observerPreFlagNode(node)
+									 }
+									 if (i === thisLogs.length - page) {
+										 observerNextFlagNode(node)
+									 }
+									 if (i === thisLogs.length - 1) {
+										 if (footerState === MoreState.HasMore) {
+											 lastNodeRef.current = null
+										 } else {
+											 lastNodeRef.current = node
+										 }
+									 }
+								 }}>
+								{v.val.type === Type.MicrobitLog ?
+									<>
+										<span className='text-gray-300'>{time}&nbsp;{'>'}&nbsp;</span>
+										<span className='text-gray-700'>{v.val.log}</span>
+									</> : <>
+										<span className='text-gray-300'>{time}&nbsp;&nbsp;&nbsp;&nbsp;</span>
+										<span className='text-gray-400'>{v.val.log}</span>
+									</>
+								}
+							</p>
+					)
 				})}
 
 				<button className={cn('my-1 mx-auto w-fit text-gray-600 border '
