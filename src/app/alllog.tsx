@@ -1,9 +1,9 @@
 'use client'
 
-import {Dispatch, RefObject, SetStateAction, useCallback, useEffect, useRef, useState} from "react"
+import {Dispatch, RefObject, SetStateAction, useCallback, useEffect, useRef, useState, UIEvent} from "react"
 import {Nc} from "@/nc"
-import {AllLogEvent, Last, LoadFrom, LoadUntil, Log, Type} from "@/table/alllog"
-import {Delay, Millisecond} from "ts-xutils"
+import {AllLogEvent, Last, LoadFrom, LoadUntil, Log, PushAllLog, Type} from "@/table/alllog"
+import {Delay, Hour, Millisecond} from "ts-xutils"
 import {useInView} from "react-intersection-observer"
 import {FontAwesomeIcon} from "@fortawesome/react-fontawesome"
 import {faAnglesDown, faSpinner} from "@fortawesome/free-solid-svg-icons"
@@ -124,6 +124,17 @@ function usePostRender(...deps: any[]): RefObject<()=>void> {
 
 	return postRender
 }
+
+async function createAllLogTestData() {
+	const start = Date.now() * Millisecond - 10 * 24 * Hour
+	const step = Math.floor(10 * 24 * Hour / 150)
+	for (let i = 0; i < 130; ++i) {
+		await PushAllLog("---------------------test-------------------------" + i
+			, Type.MicrobitLog, start + i * step)
+	}
+	await Nc.post(new AllLogEvent())
+}
+
 
 export default function AllLogs() {
 	const [logs, setLogs, indexRef] = useMergeShowLogs()
@@ -315,27 +326,140 @@ export default function AllLogs() {
 
 	const firstNodeRef = useRef<HTMLParagraphElement>(null)
 
-	let latestDateStr = ""
+	// jsx
 	type GroupStr = string
-	const jsxLogs: (GroupStr|ShowLog)[] = []
-	logs.forEach(v=>{
+	const jsxLogs: (GroupStr|(ShowLog&{end?:GroupStr}))[] = []
+	let latestDateStr = ""
+
+	let jsxLogsIndex = 0
+	logs.forEach(v => {
 		const date = new Date(v.val.since1970/Millisecond)
 		let dateStr = dateFormatter(date)
-		if (latestDateStr === dateStr) {
-			jsxLogs.push(v)
-		} else {
+		if (latestDateStr !== dateStr) {
 			jsxLogs.push(dateStr)
+			if (jsxLogsIndex !== 0) {
+				(jsxLogs[jsxLogsIndex-1] as (ShowLog&{end?:GroupStr})).end = latestDateStr
+			}
+			jsxLogsIndex++
 			latestDateStr = dateStr
 		}
+		jsxLogs.push(v)
+		jsxLogsIndex++
+	})
+	if (jsxLogs.length !== 0) {
+		(jsxLogs.at(-1)! as (ShowLog&{end?:GroupStr})).end = latestDateStr
+	}
+
+	function isShowLog(v: GroupStr|(ShowLog&{end?:GroupStr})): v is ShowLog {
+		return typeof v !== "string"
+	}
+
+	function isGroupEnd(v: GroupStr|(ShowLog&{end?:GroupStr})): v is ShowLog&{end: GroupStr} {
+		return isShowLog(v) && v.end !== undefined && v.end !== null
+	}
+
+	const groups = useRef<GroupStr[]>([])
+	const groupNodeMapRef = useRef(new Map<GroupStr, {head: HTMLElement|null, end: HTMLElement|null}>())
+
+	groups.current = []
+	groupNodeMapRef.current = new Map<GroupStr, {head: HTMLElement|null, end: HTMLElement|null}>()
+	jsxLogs.forEach(v => {
+		if (isShowLog(v)) {
+			return
+		}
+
+		groups.current.push(v)
+		groupNodeMapRef.current.set(v, {head: null, end: null})
 	})
 
-	function isShowLog(v: GroupStr|ShowLog): v is ShowLog {
-		return typeof v !== "string"
+	const [groupTitle, setGroupTitle] = useState("0000.00.00")
+	const [groupTitleShowing, showGroupTitle] = useState(false)
+	const groupHeadShowing = true
+	const groupEndShowing = false
+
+	const groupTitleNodeRef = useRef<HTMLDivElement|null>(null)
+
+	function groupHead(v: string) {
+		return (
+			<p key={v}
+				 className={cn("text-gray-400 border w-fit rounded-xl"
+				 , "px-1 text-[14px] bg-gray-100", groupHeadShowing?"visible":"invisible")}
+				 ref={node=>{
+					 // groupNodeMapRef.current.get(v)!.head = node
+				 }}>
+				{v}
+			</p>
+		)
+	}
+
+	function groupTitleJsx() {
+		return (
+			<p className={cn("absolute left-0 top-0 z-50 text-gray-400 border w-fit rounded-xl"
+				, "px-1 text-[14px] bg-gray-100", groupTitleShowing?"visible":"invisible")}
+				 ref={groupTitleNodeRef}>
+				{groupTitle}
+			</p>
+		)
+	}
+
+	function groupEnd(v: string) {
+		return (
+			<span className={cn("absolute left-0 bottom-0 z-40 text-gray-400 border w-fit rounded-xl"
+				, "px-1 text-[14px] bg-gray-100", groupEndShowing?"visible":"invisible")}
+						ref={node=>{
+							// groupNodeMapRef.current.get(v)!.end = node
+						}}>
+				{v}
+			</span>
+		)
+	}
+
+	function onScroll(e: UIEvent<HTMLDivElement>) {
+		if (groupTitleNodeRef.current === null) {
+			return
+		}
+		const title = groupTitleNodeRef.current.getBoundingClientRect()
+		for (let i = 0; i < groups.current.length; ++i) {
+			const group = groups.current[i]
+			const head = groupNodeMapRef.current.get(group)?.head?.getBoundingClientRect()
+			const end =  groupNodeMapRef.current.get(group)?.end?.getBoundingClientRect()
+			if (head === undefined || end === undefined) {
+				continue
+			}
+
+			if (title.bottom <= head.top && i === 0) {
+				showGroupTitle(false)
+				return
+			}
+
+			if (title.top < head.top && head.top < title.bottom) {
+				showGroupTitle(false)
+				return
+			}
+
+			if (head.top <= title.top && title.bottom <= end.bottom ) {
+				setGroupTitle(group)
+				showGroupTitle(true)
+				return
+			}
+
+			if (title.top <= end.bottom && end.bottom <= title.bottom) {
+				showGroupTitle(false)
+				return
+			}
+
+			if (end.bottom <= title.top && i === groups.current.length - 1) {
+				showGroupTitle(false)
+				return
+			}
+		}
 	}
 
 	return (
 		<div className="relative w-full h-full">
-			<div className="w-full h-full overflow-y-auto wrap-break-word" ref={containerNodeRef}>
+			{groupTitleJsx()}
+			<div className="w-full h-full overflow-y-auto wrap-break-word"
+					 ref={containerNodeRef} onScroll={onScroll}>
 				<button className={cn('my-1 mx-auto w-fit text-gray-600 border '
 					, ' rounded-lg hover:border-blue-300 text-[12px] p-0'
 					, (headerState != MoreState.HasMore? "hidden": "block"))}
@@ -351,32 +475,33 @@ export default function AllLogs() {
 								}}>加载更多</button>
 				<div className={cn('my-1 mx-auto w-fit text-gray-400 text-[12px]'
 					, (headerState != MoreState.NoMore? "hidden": "block"))}
-				>{logs.length === 0?'------没有Log------':'------到顶了------'}</div>
+						 onClick={async (e)=>{
+							 console.log("click_duration: ",  e.timeStamp)
+							 if (jsxLogs.length === 0 && e.timeStamp > 8000) {
+								 await createAllLogTestData()
+							 }
+						 }}>
+					{jsxLogs.length === 0?'------没有Log------':'------到顶了------'}</div>
 				<FontAwesomeIcon icon={faSpinner} spinPulse size="xs"
 												 style={{display: headerState != MoreState.Loading? "none": "block"}}
 												 className={'mx-auto my-1 text-gray-400'}/>
 
-				{jsxLogs.map((v, i, thisLogs)=> {
+				{jsxLogs.map(v=> {
 					const time = isShowLog(v)?timeFormatter(new Date(v.val.since1970/Millisecond)):""
 					return (
-						!isShowLog(v) ?
-							<p key={v}
-								 className={cn("text-gray-200 border w-fit rounded-xl"
-									 , "px-1 text-[14px] bg-gray-400")}
-							>{v}</p> :
-							<p key={v.key}
+						!isShowLog(v) ? groupHead(v) :
+							<p key={v.key} className={"relative"}
 								 ref={node => {
-									 // i === 0 一定是 group 信息，所以取 i === 1
-									 if (i === 1) {
+									 if (v.key - indexRef.current.first === 0) {
 										 firstNodeRef.current = node
 									 }
-									 if (i === page - 1) {
+									 if (v.key - indexRef.current.first === page - 1) {
 										 observerPreFlagNode(node)
 									 }
-									 if (i === thisLogs.length - page) {
+									 if (v.key - indexRef.current.first === indexRef.current.len - page) {
 										 observerNextFlagNode(node)
 									 }
-									 if (i === thisLogs.length - 1) {
+									 if (v.key - indexRef.current.first === indexRef.current.len - 1) {
 										 if (footerState === MoreState.HasMore) {
 											 lastNodeRef.current = null
 										 } else {
@@ -384,7 +509,8 @@ export default function AllLogs() {
 										 }
 									 }
 								 }}>
-								{v.val.type === Type.MicrobitLog ?
+								{
+									v.val.type === Type.MicrobitLog ?
 									<>
 										<span className='text-gray-300'>{time}&nbsp;{'>'}&nbsp;</span>
 										<span className='text-gray-700'>{v.val.log}</span>
@@ -393,6 +519,7 @@ export default function AllLogs() {
 										<span className='text-gray-400'>{v.val.log}</span>
 									</>
 								}
+								{isGroupEnd(v)? groupEnd(v.end) : ""}
 							</p>
 					)
 				})}
@@ -406,8 +533,7 @@ export default function AllLogs() {
 												 className={'mx-auto my-1 text-gray-400'}/>
 				<div className={cn('my-1 mx-auto w-fit text-gray-400 text-[12px]'
 					, (footerState != MoreState.NoMore || logs.length === 0
-					|| microbitState()===MicrobitState.Connected? "hidden": "block"))}
-				>------这是底线------</div>
+					|| microbitState()===MicrobitState.Connected? "hidden": "block"))}>------这是底线------</div>
 			</div>
 			<FontAwesomeIcon icon={faAnglesDown} size="xs" onClick={last}
 											 style={{display: footerState != MoreState.HasMore? "none": "block"}}
