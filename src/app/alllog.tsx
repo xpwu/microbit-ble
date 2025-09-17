@@ -1,6 +1,6 @@
 'use client'
 
-import {Dispatch, RefObject, SetStateAction, useCallback, useEffect, useRef, useState, UIEvent} from "react"
+import {Dispatch, RefObject, SetStateAction, useCallback, useEffect, useRef, useState, UIEvent, useMemo} from "react"
 import {Nc} from "@/nc"
 import {AllLogEvent, Last, LoadFrom, LoadUntil, Log, PushAllLog, Type} from "@/table/alllog"
 import {Delay, Hour, Millisecond} from "ts-xutils"
@@ -328,93 +328,126 @@ export default function AllLogs() {
 
 	// jsx
 	type GroupStr = string
-	const jsxLogs: (GroupStr|(ShowLog&{end?:GroupStr}))[] = []
-	let latestDateStr = ""
+	type JsxLog = GroupStr|(ShowLog&{end?:GroupStr})
+	type GroupEnd = Required<ShowLog&{end?:GroupStr}>
 
-	let jsxLogsIndex = 0
-	logs.forEach(v => {
-		const date = new Date(v.val.since1970/Millisecond)
-		let dateStr = dateFormatter(date)
-		if (latestDateStr !== dateStr) {
-			jsxLogs.push(dateStr)
-			if (jsxLogsIndex !== 0) {
-				(jsxLogs[jsxLogsIndex-1] as (ShowLog&{end?:GroupStr})).end = latestDateStr
+	const jsxLogs: JsxLog[] = useMemo(()=>{
+		const jsxLogs: JsxLog[] = []
+		let latestDateStr = ""
+		logs.forEach(v => {
+			const newDateStr = dateFormatter(new Date(v.val.since1970/Millisecond))
+			if (latestDateStr !== newDateStr) {
+				if (jsxLogs.length !== 0) {
+					(jsxLogs[jsxLogs.length-1] as GroupEnd).end = latestDateStr
+				}
+				jsxLogs.push(newDateStr)
+				latestDateStr = newDateStr
 			}
-			jsxLogsIndex++
-			latestDateStr = dateStr
+			jsxLogs.push(v)
+		})
+		if (jsxLogs.length !== 0) {
+			(jsxLogs[jsxLogs.length-1] as GroupEnd).end = latestDateStr
 		}
-		jsxLogs.push(v)
-		jsxLogsIndex++
-	})
-	if (jsxLogs.length !== 0) {
-		(jsxLogs.at(-1)! as (ShowLog&{end?:GroupStr})).end = latestDateStr
-	}
 
-	function isShowLog(v: GroupStr|(ShowLog&{end?:GroupStr})): v is ShowLog {
+		return jsxLogs
+	}, [logs])
+
+	function isShowLog(v: JsxLog): v is Readonly<ShowLog> {
 		return typeof v !== "string"
 	}
 
-	function isGroupEnd(v: GroupStr|(ShowLog&{end?:GroupStr})): v is ShowLog&{end: GroupStr} {
+	function isGroupEnd(v: JsxLog): v is Readonly<GroupEnd> {
 		return isShowLog(v) && v.end !== undefined && v.end !== null
 	}
 
+	// group title
 	const groups = useRef<GroupStr[]>([])
-	const groupNodeMapRef = useRef(new Map<GroupStr, {head: HTMLElement|null, end: HTMLElement|null}>())
+	type GroupNode =  {head: HTMLElement|null, end: HTMLElement|null}
+	type GroupNodeRef = Readonly<RefObject<Map<GroupStr, GroupNode>>>
+	const groupNodeMapRef: GroupNodeRef = useRef(new Map<GroupStr, GroupNode>())
 
-	groups.current = []
-	groupNodeMapRef.current = new Map<GroupStr, {head: HTMLElement|null, end: HTMLElement|null}>()
-	jsxLogs.forEach(v => {
-		if (isShowLog(v)) {
+	useMemo(()=>{
+		const newGroups: GroupStr[] = []
+		jsxLogs.forEach(v => {
+			if (isShowLog(v)) {
+				return
+			}
+
+			newGroups.push(v)
+		})
+		const added = newGroups.filter(ng => !groups.current.includes(ng))
+		const deleted = groups.current.filter(og => !newGroups.includes(og))
+
+		if (added.length === 0 && deleted.length === 0) {
 			return
 		}
 
-		groups.current.push(v)
-		groupNodeMapRef.current.set(v, {head: null, end: null})
-	})
+		for (const g of added) {
+			groupNodeMapRef.current.set(g, {head: null, end: null})
+		}
+		for (const d of deleted) {
+			groupNodeMapRef.current.delete(d)
+		}
 
-	const [groupTitle, setGroupTitle] = useState("0000.00.00")
-	const [groupTitleShowing, showGroupTitle] = useState(false)
+		groups.current = newGroups
+
+	}, [jsxLogs])
+
+	const [groupTitleInfo, setGroupTitleInfo] = useState("0000.00.00")
+	const [groupTitleShowing, showGroupTitle] = useState(true)
 	const groupHeadShowing = true
-	const groupEndShowing = false
+	const groupEndShowing = true
 
 	const groupTitleNodeRef = useRef<HTMLDivElement|null>(null)
 
-	function groupHead(v: string) {
+	function groupHead(v: GroupStr) {
 		return (
 			<p key={v}
 				 className={cn("text-gray-400 border w-fit rounded-xl"
 				 , "px-1 text-[14px] bg-gray-100", groupHeadShowing?"visible":"invisible")}
 				 ref={node=>{
-					 // groupNodeMapRef.current.get(v)!.head = node
+					 const nodeRef = groupNodeMapRef.current.get(v)
+					 // DOM 卸载时, nodeRef 在上面的数据处理代码中已经先删除了
+					 if (nodeRef) {
+						 nodeRef.head = node
+					 } else {
+						 console.assert(node === null)
+					 }
 				 }}>
 				{v}
 			</p>
 		)
 	}
 
-	function groupTitleJsx() {
+	function groupTitle() {
 		return (
 			<p className={cn("absolute left-0 top-0 z-50 text-gray-400 border w-fit rounded-xl"
 				, "px-1 text-[14px] bg-gray-100", groupTitleShowing?"visible":"invisible")}
 				 ref={groupTitleNodeRef}>
-				{groupTitle}
+				{groupTitleInfo}
 			</p>
 		)
 	}
 
-	function groupEnd(v: string) {
+	function groupEnd(v: GroupEnd) {
 		return (
 			<span className={cn("absolute left-0 bottom-0 z-40 text-gray-400 border w-fit rounded-xl"
 				, "px-1 text-[14px] bg-gray-100", groupEndShowing?"visible":"invisible")}
 						ref={node=>{
-							// groupNodeMapRef.current.get(v)!.end = node
+							const nodeRef = groupNodeMapRef.current.get(v.end)
+							// DOM 卸载时, nodeRef 在上面的数据处理代码中已经先删除了
+							if (nodeRef) {
+								nodeRef.end = node
+							} else {
+								console.assert(node === null)
+							}
 						}}>
-				{v}
+				{v.end}
 			</span>
 		)
 	}
 
-	function onScroll(e: UIEvent<HTMLDivElement>) {
+	function onScroll(_: UIEvent<HTMLDivElement>) {
 		if (groupTitleNodeRef.current === null) {
 			return
 		}
@@ -438,7 +471,7 @@ export default function AllLogs() {
 			}
 
 			if (head.top <= title.top && title.bottom <= end.bottom ) {
-				setGroupTitle(group)
+				setGroupTitleInfo(group)
 				showGroupTitle(true)
 				return
 			}
@@ -457,9 +490,11 @@ export default function AllLogs() {
 
 	return (
 		<div className="relative w-full h-full">
-			{groupTitleJsx()}
+			{groupTitle()}
 			<div className="w-full h-full overflow-y-auto wrap-break-word"
-					 ref={containerNodeRef} onScroll={onScroll}>
+					 ref={containerNodeRef}
+					 onScroll={onScroll}
+			>
 				<button className={cn('my-1 mx-auto w-fit text-gray-600 border '
 					, ' rounded-lg hover:border-blue-300 text-[12px] p-0'
 					, (headerState != MoreState.HasMore? "hidden": "block"))}
@@ -519,7 +554,7 @@ export default function AllLogs() {
 										<span className='text-gray-400'>{v.val.log}</span>
 									</>
 								}
-								{isGroupEnd(v)? groupEnd(v.end) : ""}
+								{isGroupEnd(v)? groupEnd(v) : ""}
 							</p>
 					)
 				})}
