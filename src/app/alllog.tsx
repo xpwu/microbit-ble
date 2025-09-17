@@ -463,7 +463,7 @@ export default function AllLogs() {
 		)
 	}
 
-	const onScroll = useCallback(()=>{
+	const renderGroupTitle = useCallback(()=>{
 		if (groupTitleNodeRef.current === null) {
 			return
 		}
@@ -515,12 +515,16 @@ export default function AllLogs() {
 		}
 	}, [])
 
+	useEffect(()=>{
+		renderGroupTitle()
+	}, [renderGroupTitle, jsxLogs])
+
 	const loadPreAnchorNodeRef = useRef<HTMLParagraphElement>(null)
 	return (
 		<div className="relative w-full h-full">
 			{groupTitle()}
 			<div className="w-full h-full overflow-y-auto wrap-break-word"
-					 ref={containerNodeRef} onScroll={onScroll}>
+					 ref={containerNodeRef} onScroll={renderGroupTitle}>
 				<button className={cn('my-1 mx-auto w-fit text-gray-600 border '
 					, ' rounded-lg hover:border-blue-300 text-[12px] p-0'
 					, (headerState != MoreState.HasMore? "hidden": "block"))}
