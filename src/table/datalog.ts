@@ -34,7 +34,7 @@ export function DataLogFrom(id: DataId, fromIndex: number): Data[] {
     return []
   }
 
-	let start = fromIndex - values.offset
+	const start = fromIndex - values.offset
 	if (start >= 0) {
 		return values.data.slice(start)
 	}

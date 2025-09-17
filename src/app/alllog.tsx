@@ -36,7 +36,7 @@ enum MoreState {
 type ShowLatestHookRes = [RefObject<HTMLElement|null>, Readonly<RefObject<boolean>>]
 	& {lastNodeRef:  RefObject<HTMLElement|null>, isLatestRef: Readonly<RefObject<boolean>>}
 
-function useShowLatest(...postRenderDeps: any[]): ShowLatestHookRes {
+function useShowLatest(...postRenderDeps: unknown[]): ShowLatestHookRes {
 	const isLatestRef = useRef(true)
 	const lastNodeRef = useRef<HTMLElement|null>(undefined)
 	const {ref: observerLastNode, inView: previousLastNodeInView} = useInView({threshold: 0.1, initialInView: true})
@@ -63,12 +63,12 @@ type MergeShowLogsHookResponse = [
 	readonly ShowLog[],
 	Dispatch<SetStateAction<ShowLog[]>>,
 	// [first, end) 来表示 logs 与底层数据之间的对应关系; len = end - first = logs.length
-	Readonly<RefObject<{readonly first: number, readonly end: number, readonly len: number}>>
+	Readonly<RefObject<Readonly<{first: number, end: number, len: number}>>>
 ] & {
 	logs: readonly ShowLog[]
 	setLogs: Dispatch<SetStateAction<ShowLog[]>>
 	// [first, end) 来表示 logs 与底层数据之间的对应关系; len = end - first = logs.length
-	indexRef: Readonly<RefObject<{readonly first: number, readonly end: number }>>
+	indexRef: Readonly<RefObject<Readonly<{first: number, end: number, len: number}>>>
 };
 
 function useMergeShowLogs(initialState: ShowLog[] | (() => ShowLog[]) = []): MergeShowLogsHookResponse {
@@ -115,7 +115,7 @@ function useMergeShowLogs(initialState: ShowLog[] | (() => ShowLog[]) = []): Mer
 	return res
 }
 
-function usePostRender(...deps: any[]): RefObject<()=>void> {
+function usePostRender(...deps: unknown[]): RefObject<()=>void> {
 	const postRender = useRef<()=>void>(()=>{})
 	useEffect(()=>{
 		postRender.current()
@@ -180,7 +180,7 @@ export default function AllLogs() {
 	}, [])
 	useEffect(()=>{
 		last().then()
-	}, [])
+	}, [last])
 
 	const [lastNodeRef, isLatestRef] = useShowLatest(logs)
 
