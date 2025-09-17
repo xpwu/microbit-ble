@@ -1,6 +1,6 @@
 'use client'
 
-import {Dispatch, RefObject, SetStateAction, useCallback, useEffect, useRef, useState, UIEvent, useMemo} from "react"
+import {Dispatch, RefObject, SetStateAction, useCallback, useEffect, useRef, useState, useMemo} from "react"
 import {Nc} from "@/nc"
 import {AllLogEvent, Last, LoadFrom, LoadUntil, Log, PushAllLog, Type} from "@/table/alllog"
 import {Delay, Hour, Millisecond} from "ts-xutils"
@@ -135,6 +135,19 @@ async function createAllLogTestData() {
 	await Nc.post(new AllLogEvent())
 }
 
+function useGroupTitle(): [title: string, show: boolean, showGroupTitle:(v:string|false)=>void] {
+	const falseValue = "0000.00.00"
+	const [value, setValue] = useState(falseValue)
+
+	return [value, value!==falseValue, v=>{
+		if (v === false) {
+			setValue(falseValue)
+			return
+		}
+
+		setValue(v)
+	}]
+}
 
 export default function AllLogs() {
 	const [logs, setLogs, indexRef] = useMergeShowLogs()
@@ -324,32 +337,34 @@ export default function AllLogs() {
 		}
 	}, [])
 
-	const firstNodeRef = useRef<HTMLParagraphElement>(null)
-
-	// jsx
+	// jsxLog
 	type GroupStr = string
 	type JsxLog = GroupStr|(ShowLog&{end?:GroupStr})
 	type GroupEnd = Required<ShowLog&{end?:GroupStr}>
+	function pickShowLog(v: ShowLog&{end?:GroupStr}) {
+		v.end = undefined
+	}
 
 	const jsxLogs: JsxLog[] = useMemo(()=>{
-		const jsxLogs: JsxLog[] = []
+		const resJsxLogs: JsxLog[] = []
 		let latestDateStr = ""
 		logs.forEach(v => {
+			pickShowLog(v)
 			const newDateStr = dateFormatter(new Date(v.val.since1970/Millisecond))
 			if (latestDateStr !== newDateStr) {
-				if (jsxLogs.length !== 0) {
-					(jsxLogs[jsxLogs.length-1] as GroupEnd).end = latestDateStr
+				if (resJsxLogs.length !== 0) {
+					(resJsxLogs[resJsxLogs.length-1] as GroupEnd).end = latestDateStr
 				}
-				jsxLogs.push(newDateStr)
+				resJsxLogs.push(newDateStr)
 				latestDateStr = newDateStr
 			}
-			jsxLogs.push(v)
+			resJsxLogs.push(v)
 		})
-		if (jsxLogs.length !== 0) {
-			(jsxLogs[jsxLogs.length-1] as GroupEnd).end = latestDateStr
+		if (resJsxLogs.length !== 0) {
+			(resJsxLogs[resJsxLogs.length-1] as GroupEnd).end = latestDateStr
 		}
 
-		return jsxLogs
+		return resJsxLogs
 	}, [logs])
 
 	function isShowLog(v: JsxLog): v is Readonly<ShowLog> {
@@ -360,12 +375,10 @@ export default function AllLogs() {
 		return isShowLog(v) && v.end !== undefined && v.end !== null
 	}
 
-	// group title
-	const groups = useRef<GroupStr[]>([])
+	// group
 	type GroupNode =  {head: HTMLElement|null, end: HTMLElement|null}
 	type GroupNodeRef = Readonly<RefObject<Map<GroupStr, GroupNode>>>
-	const groupNodeMapRef: GroupNodeRef = useRef(new Map<GroupStr, GroupNode>())
-
+	const groupNodeRef: GroupNodeRef = useRef(new Map<GroupStr, GroupNode>())
 	useMemo(()=>{
 		const newGroups: GroupStr[] = []
 		jsxLogs.forEach(v => {
@@ -375,38 +388,40 @@ export default function AllLogs() {
 
 			newGroups.push(v)
 		})
-		const added = newGroups.filter(ng => !groups.current.includes(ng))
-		const deleted = groups.current.filter(og => !newGroups.includes(og))
+
+		const groups = groupNodeRef.current.keys().toArray()
+		const added = newGroups.filter(ng => !groups.includes(ng))
+		const deleted = groups.filter(og => !newGroups.includes(og))
 
 		if (added.length === 0 && deleted.length === 0) {
 			return
 		}
 
 		for (const g of added) {
-			groupNodeMapRef.current.set(g, {head: null, end: null})
+			groupNodeRef.current.set(g, {head: null, end: null})
 		}
 		for (const d of deleted) {
-			groupNodeMapRef.current.delete(d)
+			groupNodeRef.current.delete(d)
 		}
-
-		groups.current = newGroups
-
 	}, [jsxLogs])
 
-	const [groupTitleInfo, setGroupTitleInfo] = useState("0000.00.00")
-	const [groupTitleShowing, showGroupTitle] = useState(true)
-	const groupHeadShowing = true
-	const groupEndShowing = true
-
-	const groupTitleNodeRef = useRef<HTMLDivElement|null>(null)
+	// group title
+	const [groupTitleInfo, groupTitleShowing, showGroupTitle] = useGroupTitle()
+	const [headHidden, setHeadHidden] = useState<GroupStr>("")
+	const [endShow, setEndShow] = useState<GroupStr>("")
+	useMemo(()=>{
+		showGroupTitle(false)
+		setHeadHidden("")
+		setEndShow("")
+	}, [jsxLogs])
 
 	function groupHead(v: GroupStr) {
 		return (
 			<p key={v}
 				 className={cn("text-gray-400 border w-fit rounded-xl"
-				 , "px-1 text-[14px] bg-gray-100", groupHeadShowing?"visible":"invisible")}
+				 , "px-1 text-[14px] bg-gray-100", headHidden===v?"invisible":"visible")}
 				 ref={node=>{
-					 const nodeRef = groupNodeMapRef.current.get(v)
+					 const nodeRef = groupNodeRef.current.get(v)
 					 // DOM 卸载时, nodeRef 在上面的数据处理代码中已经先删除了
 					 if (nodeRef) {
 						 nodeRef.head = node
@@ -419,6 +434,7 @@ export default function AllLogs() {
 		)
 	}
 
+	const groupTitleNodeRef = useRef<HTMLDivElement|null>(null)
 	function groupTitle() {
 		return (
 			<p className={cn("absolute left-0 top-0 z-50 text-gray-400 border w-fit rounded-xl"
@@ -432,9 +448,9 @@ export default function AllLogs() {
 	function groupEnd(v: GroupEnd) {
 		return (
 			<span className={cn("absolute left-0 bottom-0 z-40 text-gray-400 border w-fit rounded-xl"
-				, "px-1 text-[14px] bg-gray-100", groupEndShowing?"visible":"invisible")}
+				, "px-1 text-[14px] bg-gray-100", endShow===v.end?"visible":"invisible")}
 						ref={node=>{
-							const nodeRef = groupNodeMapRef.current.get(v.end)
+							const nodeRef = groupNodeRef.current.get(v.end)
 							// DOM 卸载时, nodeRef 在上面的数据处理代码中已经先删除了
 							if (nodeRef) {
 								nodeRef.end = node
@@ -447,59 +463,69 @@ export default function AllLogs() {
 		)
 	}
 
-	function onScroll(_: UIEvent<HTMLDivElement>) {
+	const onScroll = useCallback(()=>{
 		if (groupTitleNodeRef.current === null) {
 			return
 		}
 		const title = groupTitleNodeRef.current.getBoundingClientRect()
-		for (let i = 0; i < groups.current.length; ++i) {
-			const group = groups.current[i]
-			const head = groupNodeMapRef.current.get(group)?.head?.getBoundingClientRect()
-			const end =  groupNodeMapRef.current.get(group)?.end?.getBoundingClientRect()
+		const groups = groupNodeRef.current.keys().toArray().sort()
+
+		for (let i = 0; i < groups.length; ++i) {
+			const group = groups[i]
+			const head = groupNodeRef.current.get(group)?.head?.getBoundingClientRect()
+			const end =  groupNodeRef.current.get(group)?.end?.getBoundingClientRect()
 			if (head === undefined || end === undefined) {
 				continue
 			}
 
-			if (title.bottom <= head.top && i === 0) {
+			if (title.bottom < head.top && i === 0) {
 				showGroupTitle(false)
+				setHeadHidden("")
+				setEndShow("")
 				return
 			}
 
 			if (title.top < head.top && head.top < title.bottom) {
 				showGroupTitle(false)
+				setHeadHidden("")
+				setEndShow("")
 				return
 			}
 
-			if (head.top <= title.top && title.bottom <= end.bottom ) {
-				setGroupTitleInfo(group)
-				showGroupTitle(true)
+			if (head.top <= title.top && title.bottom < end.bottom ) {
+				showGroupTitle(group)
+				setHeadHidden(group)
+				setEndShow("")
 				return
 			}
 
 			if (title.top <= end.bottom && end.bottom <= title.bottom) {
 				showGroupTitle(false)
+				setHeadHidden("")
+				setEndShow(group)
 				return
 			}
 
-			if (end.bottom <= title.top && i === groups.current.length - 1) {
+			if (end.bottom <= title.top && i === groups.length - 1) {
 				showGroupTitle(false)
+				setHeadHidden("")
+				setEndShow("")
 				return
 			}
 		}
-	}
+	}, [])
 
+	const loadPreAnchorNodeRef = useRef<HTMLParagraphElement>(null)
 	return (
 		<div className="relative w-full h-full">
 			{groupTitle()}
 			<div className="w-full h-full overflow-y-auto wrap-break-word"
-					 ref={containerNodeRef}
-					 onScroll={onScroll}
-			>
+					 ref={containerNodeRef} onScroll={onScroll}>
 				<button className={cn('my-1 mx-auto w-fit text-gray-600 border '
 					, ' rounded-lg hover:border-blue-300 text-[12px] p-0'
 					, (headerState != MoreState.HasMore? "hidden": "block"))}
 								onClick={async ()=>{
-									const node = firstNodeRef.current
+									const node = loadPreAnchorNodeRef.current
 									const firstY = node?.getBoundingClientRect().y || 0
 									postRender.current = ()=>{
 										const nowY = node?.getBoundingClientRect().y || 0
@@ -528,7 +554,7 @@ export default function AllLogs() {
 							<p key={v.key} className={"relative"}
 								 ref={node => {
 									 if (v.key - indexRef.current.first === 0) {
-										 firstNodeRef.current = node
+										 loadPreAnchorNodeRef.current = node
 									 }
 									 if (v.key - indexRef.current.first === page - 1) {
 										 observerPreFlagNode(node)
