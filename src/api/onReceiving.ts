@@ -4,10 +4,41 @@ import {DataLogEvent, PushData} from "@/table/datalog"
 import {Millisecond} from "ts-xutils"
 import {AllLogEvent, PushAllLog, Type} from "@/table/alllog"
 
+class QueueBuffer<T> {
+	private buffer: T[] = []
+	private processor: ()=>Promise<void>
+	private processing = false
+
+	constructor(consumer: (data: T)=> Promise<void>) {
+		this.processor = async ()=>{
+			if (this.processing) {
+				return
+			}
+			this.processing = true
+
+			let d: T|undefined
+			while ((d = this.buffer.pop()) !== undefined) {
+				await consumer(d)
+			}
+
+			this.processing = false
+		}
+	}
+
+	push(data: T) {
+		this.buffer.push(data)
+		this.processor().then()
+	}
+}
+
+const queue = new QueueBuffer<string>(async line => {
+	await processOneLine(line)
+})
+
 export function onReceiving(log: string) {
 	const lines = chunkDataIntoLines(log)
 	for (const line of lines) {
-		processOneLine(line)
+		queue.push(line)
 	}
 }
 
@@ -37,11 +68,11 @@ function chunkDataIntoLines(data: string): string[] {
 	return lines
 }
 
-function processOneLine(line: string) {
+async function processOneLine(line: string) {
 	const since1970 = Date.now() * Millisecond
 
-	PushAllLog(line, Type.MicrobitLog, since1970)
-	Nc.post(new AllLogEvent).then()
+	await PushAllLog(line, Type.MicrobitLog, since1970)
+	await Nc.post(new AllLogEvent)
 
 	// is this a key-value pair, or just a number?
 	// id:value  or value
@@ -51,7 +82,7 @@ function processOneLine(line: string) {
 		const value = parseFloat(regRes[3]);
 		if (!isNaN(value)) {
 			PushData(id, {since1970, value})
-			Nc.post(new DataLogEvent([id])).then()
+			await Nc.post(new DataLogEvent([id]))
 			return;
 		}
 	}
@@ -60,7 +91,7 @@ function processOneLine(line: string) {
 	regRes = /^\s*>>\s*(.+)$/.exec(line)
 	if (regRes && regRes[1]) {
 		PushCmdLog(regRes[1], CmdLogType.ResLog)
-		Nc.post(new CmdLogEvent()).then()
+		await Nc.post(new CmdLogEvent())
 		return;
 	}
 }

@@ -119,7 +119,7 @@ export function BlueControl() {
 			const oldState = lastCon.current
 			lastCon.current = st
 			if (oldState != MicrobitState.Connected && st == MicrobitState.Connected) {
-				PushAllLog("---<new connection>---", Type.Tips, Date.now()*Millisecond)
+				await PushAllLog("---<new connection>---", Type.Tips, Date.now()*Millisecond)
 				await Nc.post(new AllLogEvent())
 			}
 		})

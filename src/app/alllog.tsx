@@ -173,8 +173,7 @@ export default function AllLogs() {
 			return
 		}
 
-		const first = newLogs.endIndex - newLogs.logs.length
-		const res = newLogs.logs.map((v, i)=>{return {key: first + i, val: v}})
+		const res = newLogs.logs.map(v=>{return {key: v.id, val: v}})
 		postRender.current = ()=>lastNodeRef.current?.scrollIntoView({behavior:"instant"})
 		setLogs(res)
 	}, [])
@@ -201,8 +200,8 @@ export default function AllLogs() {
 
 		const first = indexRef.current.first
 		setHeaderState(MoreState.Loading)
-		const newLogs = (await LoadUntil(first, page)).map((v, i, thisLogs) => {
-			return {key: first - thisLogs.length + i, val: v}
+		const newLogs = (await LoadUntil(first, page)).map(v => {
+			return {key: v.id, val: v}
 		})
 		setHeaderState(MoreState.HasMore)
 		// 异步获取数据后，用户可能做了其他操作
@@ -254,8 +253,8 @@ export default function AllLogs() {
 
 		const end = indexRef.current.end
 		setFooterState(MoreState.Loading)
-		const newLogs = (await LoadFrom(end, page)).map((v, i) => {
-			return {key: end + i, val: v}
+		const newLogs = (await LoadFrom(end, page)).map(v => {
+			return {key: v.id, val: v}
 		})
 		setFooterState(MoreState.HasMore)
 		// 异步获取数据后，用户可能做了其他操作
@@ -300,8 +299,8 @@ export default function AllLogs() {
 			}
 
 			const end = indexRef.current.end
-			const newLogs = (await LoadFrom(end)).map((v, i) => {
-				return {key: end + i, val: v}
+			const newLogs = (await LoadFrom(end)).map(v => {
+				return {key: v.id, val: v}
 			})
 			// 异步获取数据后，用户可能做了其他操作
 			// 所以使用数据前，需要再次确认是否有其他操作已经改变了数据

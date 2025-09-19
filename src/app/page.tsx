@@ -1,8 +1,15 @@
+'use client'
+
 import Sender from "@/app/sender"
 import CmdLog from "@/app/cmdlog"
 import {DataLog} from "@/app/datalog"
 import AllLogs from "@/app/alllog"
 import {BlueControl} from "@/app/blueControl"
+import {setDBInstance} from "@/table/db"
+import {createDexie} from "@/x/db"
+import {AllLogSchema} from "@/table/alllog"
+
+setDBInstance(createDexie("microbit", [AllLogSchema]))
 
 export default function Home() {
   return (
