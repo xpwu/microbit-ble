@@ -3,7 +3,7 @@
 import {Dispatch, RefObject, SetStateAction, useCallback, useEffect, useRef, useState, useMemo} from "react"
 import {Nc} from "@/nc"
 import {AllLogEvent, Last, LoadFrom, LoadUntil, Log, PushAllLog, Type} from "@/table/alllog"
-import {Delay, Hour, Millisecond} from "ts-xutils"
+import {Delay, Hour, Millisecond} from "ts-x"
 import {useInView} from "react-intersection-observer"
 import {FontAwesomeIcon} from "@fortawesome/react-fontawesome"
 import {faAnglesDown, faSpinner} from "@fortawesome/free-solid-svg-icons"

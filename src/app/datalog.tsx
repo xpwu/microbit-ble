@@ -3,7 +3,7 @@
 import {useEffect, useRef, useState, DragEvent, useCallback} from "react"
 import {Nc} from "@/nc"
 import {DataLogAllIds, DataLogEvent} from "@/table/datalog"
-import {UniqFlag} from "ts-xutils"
+import {UniqFlag} from "ts-x"
 import cn from "classnames"
 import {OneChartView} from "@/app/onechartview";
 

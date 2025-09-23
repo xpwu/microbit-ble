@@ -1,5 +1,5 @@
 import {CreateNCEvent} from "ts-nc";
-import {Duration} from "ts-xutils";
+import {Duration} from "ts-x";
 
 
 export const DataLogEvent = CreateNCEvent("DataLogEvent")

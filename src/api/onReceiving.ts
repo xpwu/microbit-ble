@@ -1,44 +1,18 @@
 import {CmdLogEvent, LogType as CmdLogType, PushCmdLog} from "@/table/cmdlog"
 import {Nc} from "@/nc"
 import {DataLogEvent, PushData} from "@/table/datalog"
-import {Millisecond} from "ts-xutils"
+import {Millisecond, SerialQueue} from "ts-x"
 import {AllLogEvent, PushAllLog, Type} from "@/table/alllog"
 
-class QueueBuffer<T> {
-	private buffer: T[] = []
-	private processor: ()=>Promise<void>
-	private processing = false
 
-	constructor(consumer: (data: T)=> Promise<void>) {
-		this.processor = async ()=>{
-			if (this.processing) {
-				return
-			}
-			this.processing = true
-
-			let d: T|undefined
-			while ((d = this.buffer.pop()) !== undefined) {
-				await consumer(d)
-			}
-
-			this.processing = false
-		}
-	}
-
-	push(data: T) {
-		this.buffer.push(data)
-		this.processor().then()
-	}
-}
-
-const queue = new QueueBuffer<string>(async line => {
+const queue = new SerialQueue<string>(async line => {
 	await processOneLine(line)
 })
 
 export function onReceiving(log: string) {
 	const lines = chunkDataIntoLines(log)
 	for (const line of lines) {
-		queue.push(line)
+		queue.dispatch(line)
 	}
 }
 

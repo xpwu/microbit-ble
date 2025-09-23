@@ -1,5 +1,5 @@
 import {CreateNCEvent} from "ts-nc";
-import {Duration} from "ts-xutils"
+import {Duration} from "ts-x"
 import {EntityTable} from "dexie"
 import {Name, Schema} from "@/x/db"
 import {db} from "@/table/db"

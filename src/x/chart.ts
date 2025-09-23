@@ -1,6 +1,6 @@
 import * as Smoothie from "smoothie";
 import {Data} from "@/table/datalog";
-import {Millisecond} from "ts-xutils";
+import {Millisecond} from "ts-x";
 import {toFixed} from "@/x/fun";
 
 

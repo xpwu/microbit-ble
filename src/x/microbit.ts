@@ -1,6 +1,5 @@
-import {Delay, formatDuration, Second, UniqFlag} from "ts-xutils"
-import {withTimeout} from "ts-concurrency"
-import {Mutex} from "ts-concurrency/src/mutex"
+import {Delay, formatDuration, Second, UniqFlag} from "ts-x"
+import {withTimeout, Mutex} from "ts-concurrency"
 
 const UART_SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e'; // must be lowercase!
 const UART_TX_CHARACTERISTIC_UUID = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';

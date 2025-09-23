@@ -15,7 +15,7 @@ import {
 } from "@/table/microbit"
 import {isAvailable, MicroBit, MicrobitState, requestDevice, resumeDevice} from "@/x/microbit"
 import {onReceiving} from "@/api/onReceiving"
-import {Delay, Millisecond, Second} from "ts-xutils"
+import {Delay, Millisecond, Second} from "ts-x"
 import {AllLogEvent, PushAllLog, Type} from "@/table/alllog"
 
 async function creatMicrobit(device: BluetoothDevice): Promise<[MicroBit, Error|null]> {

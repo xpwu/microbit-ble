@@ -13,7 +13,11 @@ const nextConfig: NextConfig = {
     unoptimized: true
   },
 
-	transpilePackages: ['ts-xutils', 'ts-nc', 'ts-concurrency'],
+	// turbopack: {
+	// 	root: "../"
+	// }
+
+	// transpilePackages: ['ts-x', 'ts-nc', 'ts-concurrency'],
 };
 
 export default nextConfig;
