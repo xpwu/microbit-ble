@@ -35,6 +35,15 @@ export default function CmdLog() {
 		endRef.current?.scrollIntoView({behavior:"instant"})
 	}, [logs])
 
+	if (logs.length === 0) {
+		return (
+			<div className={"w-full, h-full text-gray-400 text-center"}>
+				<p>显示 命令及其响应</p>
+				<p>microbit 发送的以 {"'>>'"} 为前缀的行都作为响应显示在这里</p>
+			</div>
+		)
+	}
+
 	return (
 		<div className="overflow-y-auto wrap-break-word">
 			{/*key = the index of table/cmdlog, not logs*/}

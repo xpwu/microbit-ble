@@ -519,6 +519,25 @@ export default function AllLogs() {
 	}, [renderGroupTitle, jsxLogs])
 
 	const loadPreAnchorNodeRef = useRef<HTMLParagraphElement>(null)
+
+	if (jsxLogs.length === 0) {
+		return (
+			<div className="w-full h-full text-center text-gray-400">
+				<p className="text-[12px]"
+					 onClick={async (e)=>{
+						 if (e.timeStamp > 8000) {
+							 await createAllLogTestData()
+						 }
+					 }}>
+					------没有Log------
+				</p>
+				<p className={"pt-4"}>
+					microbit 输出的所有数据都按行显示在这里，自动存储最近的 5000 行数据于本地浏览器中
+				</p>
+				<p>microbit 需要启动 [ 蓝牙 串口服务 ]，并在{`'项目设定'`}中开启{`'无需配对'`}</p>
+			</div>
+		)
+	}
 	return (
 		<div className="relative w-full h-full">
 			{groupTitle()}
@@ -538,14 +557,9 @@ export default function AllLogs() {
 
 								}}>加载更多</button>
 				<div className={cn('my-1 mx-auto w-fit text-gray-400 text-[12px]'
-					, (headerState != MoreState.NoMore? "hidden": "block"))}
-						 onClick={async (e)=>{
-							 console.log("click_duration: ",  e.timeStamp)
-							 if (jsxLogs.length === 0 && e.timeStamp > 8000) {
-								 await createAllLogTestData()
-							 }
-						 }}>
-					{jsxLogs.length === 0?'------没有Log------':'------到顶了------'}</div>
+					, (headerState != MoreState.NoMore? "hidden": "block"))}>
+					------到顶了------
+				</div>
 				<FontAwesomeIcon icon={faSpinner} spinPulse size="xs"
 												 style={{display: headerState != MoreState.Loading? "none": "block"}}
 												 className={'mx-auto my-1 text-gray-400'}/>

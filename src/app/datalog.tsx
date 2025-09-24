@@ -289,6 +289,16 @@ export function DataLog() {
 		setInsertPoint(groups.length)
 	}
 
+	if (groups.length === 0) {
+		return (
+			<div className="h-full, w-full text-gray-400 text-center">
+				<p>{`'var:number', 'group.var:number', 'number'`} 形式的输出将以实时曲线的方式显示在这里</p>
+				<p>对应 microbit 蓝牙指令： [ 蓝牙 串口 写入值 ({`' '`}) = ( ) ]</p>
+				<p>group.var1:number 与 group.var2:number 默认显示在同一组中，也可拖拽调整组的显示</p>
+			</div>
+		)
+	}
+
 	return (
 		<div className="h-full overflow-auto"
 				 onDragOver={e=>{e.stopPropagation(); bgDragOverHandle(e)}}
