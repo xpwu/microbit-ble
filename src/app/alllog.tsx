@@ -39,7 +39,7 @@ type ShowLatestHookRes = [RefObject<HTMLElement|null>, Readonly<RefObject<boolea
 function useShowLatest(...postRenderDeps: unknown[]): ShowLatestHookRes {
 	const isLatestRef = useRef(true)
 	const lastNodeRef = useRef<HTMLElement|null>(undefined)
-	const {ref: observerLastNode, inView: previousLastNodeInView} = useInView({threshold: 0.1, initialInView: true})
+	const {ref: observerLastNode, inView: previousLastNodeInView} = useInView({threshold: 0.1, initialInView: false})
 
 	isLatestRef.current = previousLastNodeInView && lastNodeRef.current !== null
 
@@ -185,7 +185,7 @@ export default function AllLogs() {
 
 	const containerNodeRef = useRef<HTMLDivElement>(null)
 
-	const {ref: observerPreFlagNode, inView: preFlagInView} = useInView({initialInView: true})
+	// const {ref: observerPreFlagNode, inView: preFlagInView} = useInView({initialInView: true})
 	const loadPrePage = useCallback(async (ignoreScroll: boolean)=>{
 		if (containerNodeRef.current === null) {
 			return
@@ -231,14 +231,14 @@ export default function AllLogs() {
 
 		setLogs(logs => newLogs.concat(logs).slice(sliceStart, sliceEnd))
 	}, [])
-	useEffect(()=>{
-		if (!preFlagInView || headerState !== MoreState.HasMore) {
-			return
-		}
-		loadPrePage(false).then()
-	}, [preFlagInView])
+	// useEffect(()=>{
+	// 	if (!preFlagInView || headerState !== MoreState.HasMore) {
+	// 		return
+	// 	}
+	// 	loadPrePage(false).then()
+	// }, [preFlagInView])
 
-	const {ref: observerNextFlagNode, inView: nextFlagInView} = useInView({initialInView: true})
+	// const {ref: observerNextFlagNode, inView: nextFlagInView} = useInView({initialInView: true})
 	const loadNextPage = useCallback(async (ignoreScroll: boolean)=>{
 		if (containerNodeRef.current === null) {
 			return
@@ -284,12 +284,12 @@ export default function AllLogs() {
 
 		setLogs(logs => logs.concat(newLogs).slice(sliceStart, sliceEnd))
 	}, [])
-	useEffect(()=>{
-		if (footerState !== MoreState.HasMore || !nextFlagInView) {
-			return
-		}
-		loadNextPage(false).then()
-	}, [nextFlagInView])
+	// useEffect(()=>{
+	// 	if (footerState !== MoreState.HasMore || !nextFlagInView) {
+	// 		return
+	// 	}
+	// 	loadNextPage(false).then()
+	// }, [nextFlagInView])
 
 	useEffect(()=>{
 		const item =Nc.addEvent(AllLogEvent, async ()=>{
@@ -519,6 +519,17 @@ export default function AllLogs() {
 	}, [renderGroupTitle, jsxLogs])
 
 	const loadPreAnchorNodeRef = useRef<HTMLParagraphElement>(null)
+	const loadNextAnchorNodeRef = useRef<HTMLParagraphElement>(null)
+
+	function willAnchorTo(node: HTMLParagraphElement|null) {
+		if (node != null) {
+			const preY = node.getBoundingClientRect().y
+			postRender.current = ()=>{
+				const postY = node.getBoundingClientRect().y
+				containerNodeRef.current?.scrollBy(0, postY - preY)
+			}
+		}
+	}
 
 	if (jsxLogs.length === 0) {
 		return (
@@ -543,26 +554,24 @@ export default function AllLogs() {
 			{groupTitle()}
 			<div className="w-full h-full overflow-y-auto wrap-break-word"
 					 ref={containerNodeRef} onScroll={renderGroupTitle}>
-				<button className={cn('my-1 mx-auto w-fit text-gray-600 border '
-					, ' rounded-lg hover:border-blue-300 text-[12px] p-0'
-					, (headerState != MoreState.HasMore? "hidden": "block"))}
-								onClick={async ()=>{
-									const node = loadPreAnchorNodeRef.current
-									const firstY = node?.getBoundingClientRect().y || 0
-									postRender.current = ()=>{
-										const nowY = node?.getBoundingClientRect().y || 0
-										containerNodeRef.current?.scrollTo(0, nowY - firstY)
-									}
-									await loadPrePage(true)
-
-								}}>加载更多</button>
-				<div className={cn('my-1 mx-auto w-fit text-gray-400 text-[12px]'
-					, (headerState != MoreState.NoMore? "hidden": "block"))}>
-					------到顶了------
+				<div className={"my-1 mx-auto w-fit h-[20px]"}>
+					<button className={cn('text-gray-600 border rounded-lg hover:border-blue-300 text-[12px] p-0'
+						, (headerState != MoreState.HasMore? "hidden": "block"))}
+									onClick={async ()=>{
+										willAnchorTo(loadPreAnchorNodeRef.current)
+										await loadPrePage(true)
+									}}>
+						加载更多
+					</button>
+					<p className={cn('text-gray-400 text-[12px] h-fit w-fit'
+						, (headerState != MoreState.NoMore? "hidden": "block"))}>
+						------到顶了------
+					</p>
+					<FontAwesomeIcon icon={faSpinner} spinPulse size="xs"
+													 style={{display: headerState != MoreState.Loading? "none": "block"}}
+													 className={'text-gray-400 h-fit w-fit'}
+					/>
 				</div>
-				<FontAwesomeIcon icon={faSpinner} spinPulse size="xs"
-												 style={{display: headerState != MoreState.Loading? "none": "block"}}
-												 className={'mx-auto my-1 text-gray-400'}/>
 
 				{jsxLogs.map(v=> {
 					const time = isShowLog(v)?timeFormatter(new Date(v.val.since1970/Millisecond)):""
@@ -573,12 +582,12 @@ export default function AllLogs() {
 									 if (v.key - indexRef.current.first === 0) {
 										 loadPreAnchorNodeRef.current = node
 									 }
-									 if (v.key - indexRef.current.first === page - 1) {
-										 observerPreFlagNode(node)
-									 }
-									 if (v.key - indexRef.current.first === indexRef.current.len - page) {
-										 observerNextFlagNode(node)
-									 }
+									 // if (v.key - indexRef.current.first === page - 1) {
+										//  observerPreFlagNode(node)
+									 // }
+									 // if (v.key - indexRef.current.first === indexRef.current.len - page) {
+										//  observerNextFlagNode(node)
+									 // }
 									 if (v.key - indexRef.current.first === indexRef.current.len - 1) {
 										 if (footerState === MoreState.HasMore) {
 											 lastNodeRef.current = null
@@ -602,17 +611,29 @@ export default function AllLogs() {
 					)
 				})}
 
-				<button className={cn('my-1 mx-auto w-fit text-gray-600 border '
-					, ' rounded-lg hover:border-blue-300 text-[12px] p-0 block'
+				<button className={
+					cn('my-1 mx-auto w-fit text-gray-600 border rounded-lg hover:border-blue-300 text-[12px] p-0'
 					, (footerState != MoreState.HasMore? "hidden": "block"))}
-								onClick={()=>loadNextPage(true)}>加载更多</button>
-				<FontAwesomeIcon icon={faSpinner} spinPulse size="xs"
-												 style={{display: footerState != MoreState.Loading? "none": "block"}}
-												 className={'mx-auto my-1 text-gray-400'}/>
-				<div className={cn('my-1 mx-auto w-fit text-gray-400 text-[12px]'
-					, (footerState != MoreState.NoMore || logs.length === 0
-					|| microbitState()===MicrobitState.Connected? "hidden": "block"))}>------这是底线------</div>
+								onClick={async ()=>{
+									willAnchorTo(loadNextAnchorNodeRef.current)
+									await loadNextPage(true)
+								}}>
+					加载更多
+				</button>
+				<div className={cn('my-1 mx-auto w-fit h-[20px]', (footerState != MoreState.Loading? "hidden": "block"))}>
+					<FontAwesomeIcon icon={faSpinner} spinPulse size="xs"
+													 className={'text-gray-400 h-fit w-fit'}/>
+				</div>
+				<div className={cn('my-1 mx-auto w-fit h-[20px]'
+					, (footerState != MoreState.NoMore
+					|| microbitState()===MicrobitState.Connected? "hidden": "block"))}>
+					<p className={'text-gray-400 text-[12px]'}>
+						------这是底线------
+					</p>
+				</div>
+
 			</div>
+
 			<FontAwesomeIcon icon={faAnglesDown} size="xs" onClick={last}
 											 style={{display: footerState != MoreState.HasMore? "none": "block"}}
 											 className={'absolute right-5 bottom-2 z-50 text-blue-300 hover:text-blue-500'}/>

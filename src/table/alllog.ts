@@ -49,7 +49,7 @@ export async function LoadFrom(fromIndex: number, length?: number): Promise<Log[
 		return []
 	}
 
-	return table().where('id').aboveOrEqual(fromIndex).limit(Infinity).toArray()
+	return table().where('id').aboveOrEqual(fromIndex).limit(length).toArray()
 }
 
 export async function LoadUntil(endIndex: number, length: number): Promise<Log[]> {
